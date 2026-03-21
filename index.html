@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>班级小组展示打分系统</title>
-    <!-- 使用国内稳定的 CDN，解决加载超时问题 -->
-    <script src="https://cdn.staticfile.org/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 <div class="container">
@@ -25,7 +24,7 @@
                     </div>
                     <div class="form-group">
                         <label>总人数（含老师）</label>
-                        <input type="number" id="totalPeople" class="form-control" value="55" min="1" readonly style="background:#f5f5f5;">
+                        <input type="number" id="totalPeople" class="form-control" value="55" min="1">
                     </div>
                     <div class="form-group">
                         <label>老师姓名</label>
@@ -108,7 +107,7 @@
             <p id="votePageInfo">请认真为每个小组打分</p>
         </div>
         <div class="vote-form" id="voteForm">
-            <div class="form-group" style="position: relative;">
+            <div class="form-group">
                 <label>您的姓名</label>
                 <input type="text" id="voterName" class="form-control" placeholder="请输入您的真实姓名" oninput="checkName()">
                 <div id="nameHint" class="hint-text"></div>
@@ -252,11 +251,9 @@ function saveWeekData(weekId, data) {
 
 function saveConfig() {
     const className = document.getElementById('className').value;
-    const teacherName = document.getElementById('teacherName').value.trim();
+    const teacherName = document.getElementById('teacherName').value;
     const studentListText = document.getElementById('studentList').value;
-    const studentList = studentListText.split('\n')
-        .map(s => s.trim())
-        .filter(s => s && s.length > 0);
+    const studentList = studentListText.split('\n').map(s => s.trim()).filter(s => s);
 
     const config = {
         className,
@@ -265,11 +262,6 @@ function saveConfig() {
         studentList,
         includeTeacher: true
     };
-
-    // 自动计算总人数并更新显示
-    const totalPeople = studentList.length + 1;
-    document.getElementById('totalPeople').value = totalPeople;
-
     const db = initDB();
     db.config = config;
     saveDB(db);
@@ -306,43 +298,11 @@ function getGroupNames() {
     return Array.from(document.querySelectorAll('.group-name-input')).map(i => i.value.trim()).filter(Boolean);
 }
 
-function getWeekNumber() {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), 0, 1);
-    const days = Math.floor((now - start) / 86400000);
-    return Math.ceil((days + start.getDay() + 1) / 7);
-}
-
 function generateQRCode() {
-    // 检查 QRCode 库是否加载成功
-    if (typeof QRCode === 'undefined') {
-        alert('二维码库加载失败，请检查网络或刷新页面重试。\n您也可以手动复制下方链接到手机浏览器打开。');
-        // 生成链接供手动使用
-        const baseUrl = window.location.href.split('?')[0].split('#')[0];
-        const weekId = document.getElementById('weekId').value.trim();
-        if (weekId) {
-            const manualUrl = baseUrl + '?week=' + encodeURIComponent(weekId);
-            document.getElementById('qrInfo').innerHTML = `<strong>投票链接（请复制）：</strong><br><a href="${manualUrl}" target="_blank">${manualUrl}</a>`;
-            document.getElementById('qrCard').style.display = 'block';
-        }
-        return;
-    }
-
     const weekId = document.getElementById('weekId').value.trim();
-    if (!weekId) {
-        alert('请输入周次编号！');
-        return;
-    }
-
-    // 检查是否已存在投票数据，若有则询问是否覆盖
-    const existing = getWeekData(weekId);
-    if (existing && existing.votes && existing.votes.length > 0) {
-        if (!confirm('该周次已有投票数据，重新生成二维码将清空所有投票记录。确定继续吗？')) {
-            return;
-        }
-    }
-
     const weekName = document.getElementById('weekName').value.trim();
+    if (!weekId) { alert('请输入周次编号！'); return; }
+
     const groupNames = getGroupNames();
     const total = parseInt(document.getElementById('totalPeople').value);
     const finalName = weekName || `${new Date().getFullYear()}年第${getWeekNumber()}周`;
@@ -350,7 +310,7 @@ function generateQRCode() {
     const weekData = { weekName: finalName, total, groups: groupNames, votes: [] };
     saveWeekData(weekId, weekData);
 
-    // 使用当前页面的完整 URL（移除 hash 和已有参数）
+    // 关键修复：确保 URL 一定带上 ?week=xxx 参数
     const baseUrl = window.location.href.split('?')[0].split('#')[0];
     const voteUrl = baseUrl + '?week=' + encodeURIComponent(weekId);
 
@@ -368,17 +328,23 @@ function generateQRCode() {
         `<strong>周次：</strong>${finalName} | <strong>总人数：</strong>${total}人 | <strong>小组数：</strong>${groupNames.length}组`;
     document.getElementById('qrCard').style.display = 'block';
     updateStats();
-    document.getElementById('qrCard').scrollIntoView({ behavior: 'smooth' });
+    // 额外提示：告诉你当前生成的投票链接
     console.log('投票链接：', voteUrl);
+}
+
+function getWeekNumber() {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 1);
+    const days = Math.floor((now - start) / 86400000);
+    return Math.ceil((days + start.getDay() + 1) / 7);
 }
 
 function updateStats() {
     const weekId = document.getElementById('weekId').value.trim();
-    const wd = getWeekData(weekId);
-    if (!wd) return;
+    const wd = getWeekData(weekId); if (!wd) return;
     const total = wd.total;
     const voted = wd.votes.length;
-    const pct = total === 0 ? 0 : ((voted / total) * 100).toFixed(1);
+    const pct = ((voted / total) * 100).toFixed(1);
 
     document.getElementById('votedCount').innerText = `${voted}/${total}`;
     document.getElementById('voteProgress').innerText = pct + '%';
@@ -415,7 +381,7 @@ function calcGroups(wd) {
     container.innerHTML = scores.map((g, k) => `
     <div class="stat-card" style="background:${colors[k % colors.length]};position:relative;">
       <span class="rank-badge">#${k+1}</span>
-      <h3 style="margin-top:15px;">${escapeHtml(g.name)}</h3>
+      <h3 style="margin-top:15px;">${g.name}</h3>
       <p style="font-size:1.5em;margin:10px 0;">${g.avg}分</p>
       <p style="font-size:0.9em;">总分：${g.sum}</p>
     </div>`).join('');
@@ -423,10 +389,10 @@ function calcGroups(wd) {
 
 function showUnvoted(wd) {
     const cfg = getConfig();
-    const voted = new Set(wd.votes.map(v => v.name.trim()));
+    const voted = new Set(wd.votes.map(v => v.name));
     const all = [...cfg.studentList];
     if (cfg.includeTeacher) all.push(cfg.teacherName);
-    const unvoted = all.filter(n => !voted.has(n.trim()));
+    const unvoted = all.filter(n => !voted.has(n));
     const box = document.getElementById('unvotedList');
 
     if (unvoted.length === 0) {
@@ -435,16 +401,15 @@ function showUnvoted(wd) {
     }
 
     const teacherVoted = wd.votes.some(v => v.role === 'teacher');
-    const teacherHtml = !teacherVoted ? `<div class="unvoted-item" style="background:#ff9800;color:white;font-weight:bold;">${escapeHtml(cfg.teacherName)}（老师）</div>` : '';
-    box.innerHTML = teacherHtml + unvoted.map(n => `<div class="unvoted-item">${escapeHtml(n)}</div>`).join('');
+    const teacherHtml = !teacherVoted ? `<div class="unvoted-item" style="background:#ff9800;color:white;font-weight:bold;">${cfg.teacherName}（老师）</div>` : '';
+    box.innerHTML = teacherHtml + unvoted.map(n => `<div class="unvoted-item">${n}</div>`).join('');
 }
 
 function initVotePage() {
     const q = new URLSearchParams(location.search);
     const weekId = q.get('week');
     if (!weekId) { alert('缺少周次信息'); location.href = '?'; return; }
-    const wd = getWeekData(weekId);
-    if (!wd) { alert('无此周次数据，请返回主页重新生成二维码'); location.href = '?'; return; }
+    const wd = getWeekData(weekId); if (!wd) { alert('无此周次'); location.href = '?'; return; }
 
     document.getElementById('adminPage').classList.add('hidden');
     document.getElementById('votePage').classList.remove('hidden');
@@ -455,7 +420,7 @@ function initVotePage() {
     wd.groups.forEach((g, i) => {
         const div = document.createElement('div');
         div.className = 'score-item';
-        div.innerHTML = `<label>${escapeHtml(g)}</label><input type="number" id="score_${i}" min="0" max="10" step="0.5" placeholder="0-10">`;
+        div.innerHTML = `<label>${g}</label><input type="number" id="score_${i}" min="0" max="10" step="0.5" placeholder="0-10">`;
         scoreBox.appendChild(div);
     });
 
@@ -463,131 +428,74 @@ function initVotePage() {
     window.currentWeekData = wd;
 }
 
-function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/[&<>]/g, function(m) {
-        if (m === '&') return '&amp;';
-        if (m === '<') return '&lt;';
-        if (m === '>') return '&gt;';
-        return m;
-    }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
-        return c;
-    });
-}
-
 function checkName() {
-    const nameInput = document.getElementById('voterName');
-    const rawName = nameInput.value;
-    const name = rawName.trim();
-    const hintDiv = document.getElementById('nameHint');
-    const dropdown = document.getElementById('nameDropdown');
+    const val = document.getElementById('voterName').value.trim();
+    const cfg = getConfig();
+    const all = [...cfg.studentList];
+    if (cfg.includeTeacher) all.push(cfg.teacherName);
 
-    const config = getConfig();
-    const allNames = [...config.studentList];
-    if (config.includeTeacher) allNames.push(config.teacherName);
-    const trimmedNames = allNames.map(n => n.trim());
+    const drop = document.getElementById('nameDropdown');
+    const hint = document.getElementById('nameHint');
 
-    if (name.length > 0) {
-        const matches = trimmedNames.filter(n => n.includes(name));
-        if (matches.length > 0 && matches.length < 10) {
-            dropdown.innerHTML = matches.map(m => `<div class="auto-complete-item" onclick="selectName('${m.replace(/'/g, "\\'")}')">${escapeHtml(m)}</div>`).join('');
-            dropdown.classList.remove('hidden');
-        } else {
-            dropdown.classList.add('hidden');
-        }
+    if (!val) { drop.classList.add('hidden'); hint.classList.remove('show'); return; }
+
+    const matches = all.filter(n => n.includes(val));
+    if (matches.length > 0 && matches.length < 10) {
+        drop.innerHTML = matches.map(m => `<div class="auto-complete-item" onclick="selectName('${m}')">${m}</div>`).join('');
+        drop.classList.remove('hidden');
     } else {
-        dropdown.classList.add('hidden');
+        drop.classList.add('hidden');
     }
 
-    if (name.length === 0) {
-        hintDiv.classList.remove('show');
-        return;
-    }
-
-    const isTeacher = name === config.teacherName.trim();
-    const isStudent = config.studentList.some(s => s.trim() === name);
-
-    if (isTeacher || isStudent) {
-        hintDiv.textContent = '';
-        hintDiv.classList.remove('show');
-        if (isTeacher) {
-            document.querySelector('input[name="role"][value="teacher"]').checked = true;
-        }
+    const isOk = (val === cfg.teacherName) || cfg.studentList.includes(val);
+    if (isOk) {
+        hint.classList.remove('show');
     } else {
-        hintDiv.textContent = '未找到该姓名，请确认是否在名单中（注意前后空格）';
-        hintDiv.classList.add('show');
-        console.log('输入姓名:', `"${name}"`);
-        console.log('当前学生名单:', config.studentList.map(s => `"${s}"`).join(', '));
-        console.log('老师姓名:', `"${config.teacherName}"`);
+        hint.innerText = '未找到该姓名，请确认';
+        hint.classList.add('show');
     }
 }
 
-function selectName(name) {
-    document.getElementById('voterName').value = name;
+function selectName(n) {
+    document.getElementById('voterName').value = n;
     document.getElementById('nameDropdown').classList.add('hidden');
     checkName();
 }
 
 function submitVote() {
-    const rawName = document.getElementById('voterName').value;
-    const name = rawName.trim();
-    const roleElem = document.querySelector('input[name="role"]:checked');
-    if (!roleElem) return;
-    const role = roleElem.value;
+    const name = document.getElementById('voterName').value.trim();
+    const role = document.querySelector('input[name="role"]:checked').value;
+    if (!name) { alert('请输入姓名'); return; }
 
-    if (!name) {
-        alert('请输入您的姓名！');
-        return;
-    }
+    const cfg = getConfig();
+    const isTeacher = name === cfg.teacherName;
+    const isStudent = cfg.studentList.includes(name);
+    if (!isTeacher && !isStudent) { alert('姓名不在名单中'); return; }
 
-    const config = getConfig();
-    const isTeacher = name === config.teacherName.trim();
-    const isStudent = config.studentList.some(s => s.trim() === name);
-
-    if (!isTeacher && !isStudent) {
-        alert(`姓名“${name}”不在名单中，请检查姓名是否正确（注意前后空格）。\n当前老师：${config.teacherName}\n学生名单：${config.studentList.join(', ')}`);
-        return;
-    }
-
-    const finalRole = isTeacher ? 'teacher' : role;
-
-    const weekData = getWeekData(window.currentWeekId);
-    if (!weekData) {
-        alert('周次数据异常，请返回主页重新操作');
-        return;
-    }
-
-    const hasVoted = weekData.votes.some(v => v.name.trim() === name);
-    if (hasVoted) {
-        alert('您已经投过票了，不能重复投票！');
-        return;
-    }
+    const wd = getWeekData(currentWeekId);
+    if (wd.votes.some(v => v.name === name)) { alert('已投过票，不能重复投'); return; }
 
     const scores = [];
-    for (let i = 0; i < window.currentWeekData.groups.length; i++) {
-        const scoreInput = document.getElementById(`score_${i}`);
-        if (!scoreInput) continue;
-        const score = parseFloat(scoreInput.value);
-        if (isNaN(score) || score < 0 || score > 10) {
-            alert(`请为“${window.currentWeekData.groups[i]}”输入 0-10 之间的分数！`);
-            scoreInput.focus();
+    for (let i = 0; i < currentWeekData.groups.length; i++) {
+        const inp = document.getElementById('score_' + i);
+        const s = parseFloat(inp.value);
+        if (isNaN(s) || s < 0 || s > 10) {
+            alert('请输入 0-10 之间的分数');
+            inp.focus();
             return;
         }
-        scores.push(score);
+        scores.push(s);
     }
 
-    const vote = {
-        name: name,
-        role: finalRole,
-        scores: scores,
+    wd.votes.push({
+        name, role, scores,
         time: new Date().toLocaleString('zh-CN')
-    };
-    weekData.votes.push(vote);
-    saveWeekData(window.currentWeekId, weekData);
+    });
+    saveWeekData(currentWeekId, wd);
 
     document.getElementById('voteForm').classList.add('hidden');
     document.getElementById('successMessage').classList.remove('hidden');
-    document.getElementById('successName').textContent = name;
+    document.getElementById('successName').innerText = name;
 }
 
 function resetWeekData() {
@@ -605,21 +513,21 @@ function showVoteDetails() {
     const weekId = document.getElementById('weekId').value.trim();
     const wd = getWeekData(weekId);
     if (!wd) { alert('无数据'); return; }
-    const modal = document.getElementById('detailModal');
-    const content = document.getElementById('detailContent');
+    const m = document.getElementById('detailModal');
+    const c = document.getElementById('detailContent');
     if (wd.votes.length === 0) {
-        content.innerHTML = '<p style="padding:40px;color:#999;">暂无投票</p>';
+        c.innerHTML = '<p style="padding:40px;color:#999;">暂无投票</p>';
     } else {
-        content.innerHTML = `<ul class="vote-list">${wd.votes.map(v => `
+        c.innerHTML = `<ul class="vote-list">${wd.votes.map(v => `
         <li class="vote-item">
           <div>
-            <div class="name">${escapeHtml(v.name)}${v.role === 'teacher' ? '<span class="score-badge teacher-badge">老师</span>' : ''}</div>
-            <div class="time">${escapeHtml(v.time)}</div>
+            <div class="name">${v.name}${v.role === 'teacher' ? '<span class="score-badge teacher-badge">老师</span>' : ''}</div>
+            <div class="time">${v.time}</div>
           </div>
-          <div class="scores">${v.scores.map((s, i) => `<span class="score-badge" title="${escapeHtml(wd.groups[i])}">${s}</span>`).join('')}</div>
+          <div class="scores">${v.scores.map((s, i) => `<span class="score-badge" title="${wd.groups[i]}">${s}</span>`).join('')}</div>
         </li>`).join('')}</ul>`;
     }
-    modal.classList.add('active');
+    m.classList.add('active');
 }
 
 function closeModal() {
@@ -631,7 +539,7 @@ function exportToCSV() {
     const wd = getWeekData(weekId);
     if (!wd || wd.votes.length === 0) { alert('无数据可导出'); return; }
 
-    const headers = ['序号', '姓名', '身份', '时间', ...wd.groups];
+    const head = ['序号', '姓名', '身份', '时间', ...wd.groups];
     const rows = wd.votes.map((v, i) => [
         i + 1,
         v.name,
@@ -640,10 +548,8 @@ function exportToCSV() {
         ...v.scores
     ]);
 
-    let csv = '\uFEFF' + headers.map(h => `"${String(h).replace(/"/g, '""')}"`).join(',') + '\n';
-    rows.forEach(row => {
-        csv += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',') + '\n';
-    });
+    let csv = '\uFEFF' + head.join(',') + '\n';
+    rows.forEach(r => { csv += r.join(',') + '\n'; });
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
