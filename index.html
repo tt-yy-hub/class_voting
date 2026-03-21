@@ -5,6 +5,71 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>班级小组展示打分系统</title>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;}
+        :root{--primary-color:#4CAF50;--secondary-color:#2196F3;--danger-color:#f44336;--warning-color:#ff9800;--success-color:#8BC34A;}
+        body{font-family:'Microsoft YaHei',Arial,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;padding:20px;}
+        .container{max-width:1400px;margin:0 auto;}
+        .header{text-align:center;color:white;margin-bottom:30px;text-shadow:2px 2px 4px rgba(0,0,0,0.3);}
+        .header h1{font-size:2.5em;margin-bottom:10px;}
+        .card{background:#fff;border-radius:15px;padding:25px;margin-bottom:20px;box-shadow:0 10px 40px rgba(0,0,0,0.2);}
+        .card-title{font-size:1.5em;color:var(--primary-color);margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #e0e0e0;}
+        .form-group{margin-bottom:20px;}
+        .form-group label{display:block;margin-bottom:8px;font-weight:bold;color:#555;}
+        .form-control{width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:1em;}
+        .form-control:focus{outline:none;border-color:var(--primary-color);box-shadow:0 0 0 3px rgba(76,175,80,0.1);}
+        textarea.form-control{min-height:150px;resize:vertical;}
+        .btn{padding:12px 30px;border:none;border-radius:8px;font-size:1em;font-weight:bold;cursor:pointer;margin-right:10px;margin-bottom:10px;}
+        .btn:hover{transform:translateY(-2px);box-shadow:0 5px 15px rgba(0,0,0,0.2);}
+        .btn-primary{background:var(--primary-color);color:white;}
+        .btn-secondary{background:var(--secondary-color);color:white;}
+        .btn-danger{background:var(--danger-color);color:white;}
+        .btn-success{background:var(--success-color);color:white;}
+        .btn-warning{background:var(--warning-color);color:white;}
+        .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;margin-bottom:20px;}
+        .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:20px;}
+        .stat-card{color:white;padding:20px;border-radius:10px;text-align:center;}
+        .stat-card h3{font-size:2em;margin-bottom:5px;}
+        .stat-card p{opacity:0.9;font-size:0.9em;}
+        .group-inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:15px;}
+        .qr-container{text-align:center;padding:20px;}
+        #qrcode{display:inline-block;margin:20px auto;padding:15px;background:white;border-radius:10px;}
+        .progress-bar{width:100%;height:30px;background:#e0e0e0;border-radius:15px;overflow:hidden;margin:15px 0;}
+        .progress-fill{height:100%;background:linear-gradient(90deg,#667eea 0%,#764ba2 100%);transition:width 0.5s ease;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;}
+        .unvoted-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;max-height:300px;overflow-y:auto;padding:10px;background:#f9f9f9;border-radius:8px;}
+        .unvoted-item{background:white;padding:8px 15px;border-radius:20px;text-align:center;border:2px solid #e0e0e0;font-size:0.9em;}
+        .modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1000;justify-content:center;align-items:center;}
+        .modal.active{display:flex;}
+        .modal-content{background:white;padding:30px;border-radius:15px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;}
+        .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:15px;border-bottom:2px solid #e0e0e0;}
+        .modal-close{font-size:1.5em;cursor:pointer;color:#888;}
+        .vote-page{max-width:800px;margin:0 auto;}
+        .vote-form{background:white;padding:30px;border-radius:15px;box-shadow:0 10px 40px rgba(0,0,0,0.2);}
+        .identity-selector{display:flex;gap:20px;margin:15px 0;}
+        .identity-option{display:flex;align-items:center;gap:8px;cursor:pointer;}
+        .score-inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin:20px 0;}
+        .score-item{background:#f9f9f9;padding:20px;border-radius:10px;text-align:center;}
+        .score-item label{display:block;font-weight:bold;margin-bottom:10px;color:#555;}
+        .score-item input{width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:1.2em;text-align:center;}
+        .hint-text{color:var(--danger-color);font-size:0.9em;margin-top:5px;display:none;}
+        .hint-text.show{display:block;}
+        .success-message{text-align:center;padding:40px;background:#e8f5e9;border-radius:15px;margin:20px 0;}
+        .success-message h2{color:var(--success-color);font-size:2em;margin-bottom:10px;}
+        .hidden{display:none;}
+        .auto-complete-dropdown{position:absolute;background:white;border:2px solid #e0e0e0;border-radius:8px;max-height:200px;overflow-y:auto;z-index:100;width:100%;box-shadow:0 5px 15px rgba(0,0,0,0.1);}
+        .auto-complete-item{padding:10px 15px;cursor:pointer;}
+        .auto-complete-item:hover{background:#f0f0f0;}
+        .rank-badge{background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);color:white;padding:5px 15px;border-radius:20px;font-weight:bold;display:inline-block;margin-left:10px;}
+        .vote-list{list-style:none;}
+        .vote-item{padding:15px;border-bottom:1px solid #e0e0e0;display:flex;justify-content:space-between;align-items:center;}
+        .vote-item:last-child{border-bottom:none;}
+        .vote-item .name{font-weight:bold;font-size:1.1em;}
+        .vote-item .time{color:#888;font-size:0.9em;}
+        .vote-item .scores{display:flex;gap:10px;}
+        .score-badge{background:var(--primary-color);color:white;padding:5px 12px;border-radius:20px;font-size:0.9em;}
+        .teacher-badge{background:var(--warning-color);}
+        @media(max-width:768px){.header h1{font-size:1.8em;}.row{grid-template-columns:1fr;}.stats-grid{grid-template-columns:repeat(2,1fr);}.btn{width:100%;}}
+    </style>
 </head>
 <body>
 <div class="container">
@@ -24,7 +89,7 @@
                     </div>
                     <div class="form-group">
                         <label>总人数（含老师）</label>
-                        <input type="number" id="totalPeople" class="form-control" value="55" min="1">
+                        <input type="number" id="totalPeople" class="form-control" value="55" min="1" readonly>
                     </div>
                     <div class="form-group">
                         <label>老师姓名</label>
@@ -38,7 +103,7 @@
                     </div>
                 </div>
             </div>
-            <button class="btn btn-primary" onclick="saveConfig()">保存配置</button>
+            <button id="saveConfigBtn" class="btn btn-primary">保存配置</button>
             <span id="configSaved" style="color:#4CAF50;margin-left:10px;display:none;">已保存</span>
         </div>
 
@@ -56,7 +121,7 @@
                     </div>
                     <div class="form-group">
                         <label>展示小组数量</label>
-                        <select id="groupCount" class="form-control" onchange="generateGroupInputs()">
+                        <select id="groupCount" class="form-control">
                             <option value="3">3 个小组</option>
                             <option value="4">4 个小组</option>
                         </select>
@@ -69,8 +134,8 @@
                     </div>
                 </div>
             </div>
-            <button class="btn btn-success" onclick="generateQRCode()">生成本周二维码</button>
-            <button class="btn btn-danger" onclick="resetWeekData()">重置本周数据</button>
+            <button id="genQRBtn" class="btn btn-success">生成本周二维码</button>
+            <button id="resetBtn" class="btn btn-danger">重置本周数据</button>
         </div>
 
         <div class="card" id="qrCard" style="display:none;">
@@ -95,8 +160,8 @@
             <h3 style="margin:20px 0 15px;">未投票名单</h3>
             <div id="unvotedList" class="unvoted-list"></div>
             <div style="margin-top:20px;">
-                <button class="btn btn-secondary" onclick="showVoteDetails()">查看详细投票列表</button>
-                <button class="btn btn-warning" onclick="exportToCSV()">导出 CSV</button>
+                <button id="detailBtn" class="btn btn-secondary">查看详细投票列表</button>
+                <button id="exportBtn" class="btn btn-warning">导出 CSV</button>
             </div>
         </div>
     </div>
@@ -109,7 +174,7 @@
         <div class="vote-form" id="voteForm">
             <div class="form-group">
                 <label>您的姓名</label>
-                <input type="text" id="voterName" class="form-control" placeholder="请输入您的真实姓名" oninput="checkName()">
+                <input type="text" id="voterName" class="form-control" placeholder="请输入您的真实姓名">
                 <div id="nameHint" class="hint-text"></div>
                 <div id="nameDropdown" class="auto-complete-dropdown hidden"></div>
             </div>
@@ -122,7 +187,7 @@
             </div>
             <h3 style="margin:20px 0 15px;">请为以下小组打分（0-10 分）</h3>
             <div id="scoreInputs" class="score-inputs"></div>
-            <button class="btn btn-primary" onclick="submitVote()" style="width:100%;margin-top:20px;padding:15px;">提交投票</button>
+            <button id="submitVoteBtn" class="btn btn-primary" style="width:100%;margin-top:20px;padding:15px;">提交投票</button>
         </div>
         <div id="successMessage" class="success-message hidden">
             <h2>投票成功！</h2>
@@ -142,130 +207,33 @@
     </div>
 </div>
 
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-:root{--primary-color:#4CAF50;--secondary-color:#2196F3;--danger-color:#f44336;--warning-color:#ff9800;--success-color:#8BC34A;}
-body{font-family:'Microsoft YaHei',Arial,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;padding:20px;}
-.container{max-width:1400px;margin:0 auto;}
-.header{text-align:center;color:white;margin-bottom:30px;text-shadow:2px 2px 4px rgba(0,0,0,0.3);}
-.header h1{font-size:2.5em;margin-bottom:10px;}
-.card{background:#fff;border-radius:15px;padding:25px;margin-bottom:20px;box-shadow:0 10px 40px rgba(0,0,0,0.2);}
-.card-title{font-size:1.5em;color:var(--primary-color);margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #e0e0e0;}
-.form-group{margin-bottom:20px;}
-.form-group label{display:block;margin-bottom:8px;font-weight:bold;color:#555;}
-.form-control{width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:1em;}
-.form-control:focus{outline:none;border-color:var(--primary-color);box-shadow:0 0 0 3px rgba(76,175,80,0.1);}
-textarea.form-control{min-height:150px;resize:vertical;}
-.btn{padding:12px 30px;border:none;border-radius:8px;font-size:1em;font-weight:bold;cursor:pointer;margin-right:10px;margin-bottom:10px;}
-.btn:hover{transform:translateY(-2px);box-shadow:0 5px 15px rgba(0,0,0,0.2);}
-.btn-primary{background:var(--primary-color);color:white;}
-.btn-secondary{background:var(--secondary-color);color:white;}
-.btn-danger{background:var(--danger-color);color:white;}
-.btn-success{background:var(--success-color);color:white;}
-.btn-warning{background:var(--warning-color);color:white;}
-.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;margin-bottom:20px;}
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:20px;}
-.stat-card{color:white;padding:20px;border-radius:10px;text-align:center;}
-.stat-card h3{font-size:2em;margin-bottom:5px;}
-.stat-card p{opacity:0.9;font-size:0.9em;}
-.group-inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:15px;}
-.qr-container{text-align:center;padding:20px;}
-#qrcode{display:inline-block;margin:20px auto;padding:15px;background:white;border-radius:10px;}
-.progress-bar{width:100%;height:30px;background:#e0e0e0;border-radius:15px;overflow:hidden;margin:15px 0;}
-.progress-fill{height:100%;background:linear-gradient(90deg,#667eea 0%,#764ba2 100%);transition:width 0.5s ease;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;}
-.unvoted-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;max-height:300px;overflow-y:auto;padding:10px;background:#f9f9f9;border-radius:8px;}
-.unvoted-item{background:white;padding:8px 15px;border-radius:20px;text-align:center;border:2px solid #e0e0e0;font-size:0.9em;}
-.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1000;justify-content:center;align-items:center;}
-.modal.active{display:flex;}
-.modal-content{background:white;padding:30px;border-radius:15px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;}
-.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:15px;border-bottom:2px solid #e0e0e0;}
-.modal-close{font-size:1.5em;cursor:pointer;color:#888;}
-.vote-page{max-width:800px;margin:0 auto;}
-.vote-form{background:white;padding:30px;border-radius:15px;box-shadow:0 10px 40px rgba(0,0,0,0.2);}
-.identity-selector{display:flex;gap:20px;margin:15px 0;}
-.identity-option{display:flex;align-items:center;gap:8px;cursor:pointer;}
-.score-inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin:20px 0;}
-.score-item{background:#f9f9f9;padding:20px;border-radius:10px;text-align:center;}
-.score-item label{display:block;font-weight:bold;margin-bottom:10px;color:#555;}
-.score-item input{width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:1.2em;text-align:center;}
-.hint-text{color:var(--danger-color);font-size:0.9em;margin-top:5px;display:none;}
-.hint-text.show{display:block;}
-.success-message{text-align:center;padding:40px;background:#e8f5e9;border-radius:15px;margin:20px 0;}
-.success-message h2{color:var(--success-color);font-size:2em;margin-bottom:10px;}
-.hidden{display:none;}
-.auto-complete-dropdown{position:absolute;background:white;border:2px solid #e0e0e0;border-radius:8px;max-height:200px;overflow-y:auto;z-index:100;width:100%;box-shadow:0 5px 15px rgba(0,0,0,0.1);}
-.auto-complete-item{padding:10px 15px;cursor:pointer;}
-.auto-complete-item:hover{background:#f0f0f0;}
-.rank-badge{background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);color:white;padding:5px 15px;border-radius:20px;font-weight:bold;display:inline-block;margin-left:10px;}
-.vote-list{list-style:none;}
-.vote-item{padding:15px;border-bottom:1px solid #e0e0e0;display:flex;justify-content:space-between;align-items:center;}
-.vote-item:last-child{border-bottom:none;}
-.vote-item .name{font-weight:bold;font-size:1.1em;}
-.vote-item .time{color:#888;font-size:0.9em;}
-.vote-item .scores{display:flex;gap:10px;}
-.score-badge{background:var(--primary-color);color:white;padding:5px 12px;border-radius:20px;font-size:0.9em;}
-.teacher-badge{background:var(--warning-color);}
-@media(max-width:768px){.header h1{font-size:1.8em;}.row{grid-template-columns:1fr;}.stats-grid{grid-template-columns:repeat(2,1fr);}.btn{width:100%;}}
-</style>
-
 <script>
-const DB_KEY = 'class_voting_system';
-
-function initDB() {
-    let db = localStorage.getItem(DB_KEY);
-    if (!db) {
-        const data = {
-            config: {
-                className: '高三(1)班',
-                totalStudents: 54,
-                teacherName: '张老师',
-                studentList: [],
-                includeTeacher: true
-            },
-            weeks: {}
-        };
-        localStorage.setItem(DB_KEY, JSON.stringify(data));
-        return data;
-    }
-    return JSON.parse(db);
+// ========== 工具函数 ==========
+function cleanName(str) {
+    return str.replace(/[\s\u3000\r\n\t]/g, '').trim();
+}
+function getUrlParam(key) {
+    return new URLSearchParams(window.location.search).get(key);
+}
+function b64Encode(str) {
+    return btoa(encodeURIComponent(str));
+}
+function b64Decode(str) {
+    return decodeURIComponent(atob(str));
 }
 
-function saveDB(data) {
-    localStorage.setItem(DB_KEY, JSON.stringify(data));
-}
-
-function getConfig() {
-    return initDB().config;
-}
-
-function getWeekData(weekId) {
-    const db = initDB();
-    return db.weeks[weekId] || null;
-}
-
-function saveWeekData(weekId, data) {
-    const db = initDB();
-    db.weeks[weekId] = data;
-    saveDB(db);
-}
-
+// ========== 配置管理 ==========
 function saveConfig() {
-    const className = document.getElementById('className').value;
-    const teacherName = document.getElementById('teacherName').value;
+    const className = document.getElementById('className').value.trim();
+    const teacherName = cleanName(document.getElementById('teacherName').value);
     const studentListText = document.getElementById('studentList').value;
-    const studentList = studentListText.split('\n').map(s => s.trim()).filter(s => s);
+    const studentList = studentListText.split('\n').map(s => cleanName(s)).filter(s => s);
+    const total = studentList.length + 1; // 学生+老师
 
-    const config = {
-        className,
-        totalStudents: studentList.length,
-        teacherName,
-        studentList,
-        includeTeacher: true
-    };
-    const db = initDB();
-    db.config = config;
-    saveDB(db);
+    const config = { className, teacherName, studentList, total };
+    localStorage.setItem('vote_config', JSON.stringify(config));
 
+    document.getElementById('totalPeople').value = total;
     const savedMsg = document.getElementById('configSaved');
     savedMsg.style.display = 'inline';
     setTimeout(() => savedMsg.style.display = 'none', 2000);
@@ -274,14 +242,14 @@ function saveConfig() {
 }
 
 function loadConfig() {
-    const config = getConfig();
-    document.getElementById('className').value = config.className || '';
-    const total = config.totalStudents + (config.includeTeacher ? 1 : 0);
-    document.getElementById('totalPeople').value = total;
-    document.getElementById('teacherName').value = config.teacherName || '';
-    document.getElementById('studentList').value = (config.studentList || []).join('\n');
+    const config = JSON.parse(localStorage.getItem('vote_config') || '{}');
+    if (config.className) document.getElementById('className').value = config.className;
+    if (config.teacherName) document.getElementById('teacherName').value = config.teacherName;
+    if (config.studentList) document.getElementById('studentList').value = config.studentList.join('\n');
+    if (config.total) document.getElementById('totalPeople').value = config.total;
 }
 
+// ========== 小组输入 ==========
 function generateGroupInputs() {
     const count = parseInt(document.getElementById('groupCount').value);
     const container = document.getElementById('groupInputs');
@@ -295,40 +263,48 @@ function generateGroupInputs() {
 }
 
 function getGroupNames() {
-    return Array.from(document.querySelectorAll('.group-name-input')).map(i => i.value.trim()).filter(Boolean);
+    return Array.from(document.querySelectorAll('.group-name-input')).map(i => cleanName(i.value)).filter(Boolean);
 }
 
+// ========== 生成二维码（核心修复：数据放链接里） ==========
 function generateQRCode() {
     const weekId = document.getElementById('weekId').value.trim();
     const weekName = document.getElementById('weekName').value.trim();
     if (!weekId) { alert('请输入周次编号！'); return; }
 
     const groupNames = getGroupNames();
-    const total = parseInt(document.getElementById('totalPeople').value);
-    const finalName = weekName || `${new Date().getFullYear()}年第${getWeekNumber()}周`;
+    if (groupNames.length === 0) { alert('请填写小组名称！'); return; }
 
-    const weekData = { weekName: finalName, total, groups: groupNames, votes: [] };
-    saveWeekData(weekId, weekData);
+    const config = JSON.parse(localStorage.getItem('vote_config') || '{}');
+    const voteData = {
+        w: weekId,
+        n: weekName || `${new Date().getFullYear()}年第${getWeekNumber()}周`,
+        g: groupNames,
+        t: config.teacherName || '',
+        s: config.studentList || [],
+        total: config.total || 55
+    };
 
-    // 关键修复：确保 URL 一定带上 ?week=xxx 参数
+    // 生成投票链接（数据编码进URL）
     const baseUrl = window.location.href.split('?')[0].split('#')[0];
-    const voteUrl = baseUrl + '?week=' + encodeURIComponent(weekId);
+    const dataStr = b64Encode(JSON.stringify(voteData));
+    const voteUrl = `${baseUrl}?d=${dataStr}`;
 
+    // 生成二维码
     document.getElementById('qrcode').innerHTML = '';
     new QRCode(document.getElementById('qrcode'), {
         text: voteUrl,
         width: 256,
         height: 256,
-        colorDark: '#000000',
-        colorLight: '#ffffff',
+        colorDark: '#000',
+        colorLight: '#fff',
         correctLevel: QRCode.CorrectLevel.H
     });
 
     document.getElementById('qrInfo').innerHTML = 
-        `<strong>周次：</strong>${finalName} | <strong>总人数：</strong>${total}人 | <strong>小组数：</strong>${groupNames.length}组`;
+        `<strong>周次：</strong>${voteData.n} | <strong>总人数：</strong>${voteData.total}人 | <strong>小组数：</strong>${voteData.g.length}组`;
     document.getElementById('qrCard').style.display = 'block';
     updateStats();
-    // 额外提示：告诉你当前生成的投票链接
     console.log('投票链接：', voteUrl);
 }
 
@@ -339,36 +315,40 @@ function getWeekNumber() {
     return Math.ceil((days + start.getDay() + 1) / 7);
 }
 
+// ========== 统计 ==========
 function updateStats() {
     const weekId = document.getElementById('weekId').value.trim();
-    const wd = getWeekData(weekId); if (!wd) return;
-    const total = wd.total;
-    const voted = wd.votes.length;
+    const voteKey = `vote_${weekId}`;
+    const votes = JSON.parse(localStorage.getItem(voteKey) || '[]');
+    const config = JSON.parse(localStorage.getItem('vote_config') || '{}');
+    const total = config.total || 55;
+    const voted = votes.length;
     const pct = ((voted / total) * 100).toFixed(1);
 
     document.getElementById('votedCount').innerText = `${voted}/${total}`;
     document.getElementById('voteProgress').innerText = pct + '%';
-    document.getElementById('currentWeek').innerText = wd.weekName.split('年')[1] || '-';
-    document.getElementById('groupCountStat').innerText = wd.groups.length + '个';
+    document.getElementById('currentWeek').innerText = weekId || '-';
+    document.getElementById('groupCountStat').innerText = getGroupNames().length + '个';
 
     const pb = document.getElementById('progressBar');
     pb.style.width = pct + '%';
     pb.innerText = pct + '%';
 
-    calcGroups(wd);
-    showUnvoted(wd);
+    calcGroups(votes);
+    showUnvoted(votes);
 }
 
-function calcGroups(wd) {
+function calcGroups(votes) {
+    const groups = getGroupNames();
     const container = document.getElementById('groupRankings');
-    if (wd.votes.length === 0) {
+    if (votes.length === 0) {
         container.innerHTML = '<p style="padding:20px;color:#999;">暂无投票数据</p>';
         return;
     }
-    const scores = wd.groups.map((g, i) => {
+    const scores = groups.map((g, i) => {
         let sum = 0;
-        wd.votes.forEach(v => sum += parseFloat(v.scores[i] || 0));
-        const avg = (sum / wd.votes.length).toFixed(2);
+        votes.forEach(v => sum += parseFloat(v.scores[i] || 0));
+        const avg = (sum / votes.length).toFixed(2);
         return { name: g, sum: sum.toFixed(2), avg };
     });
     scores.sort((a, b) => parseFloat(b.avg) - parseFloat(a.avg));
@@ -387,12 +367,11 @@ function calcGroups(wd) {
     </div>`).join('');
 }
 
-function showUnvoted(wd) {
-    const cfg = getConfig();
-    const voted = new Set(wd.votes.map(v => v.name));
-    const all = [...cfg.studentList];
-    if (cfg.includeTeacher) all.push(cfg.teacherName);
-    const unvoted = all.filter(n => !voted.has(n));
+function showUnvoted(votes) {
+    const config = JSON.parse(localStorage.getItem('vote_config') || '{}');
+    const votedNames = new Set(votes.map(v => cleanName(v.name)));
+    const allNames = [...(config.studentList || []), config.teacherName].filter(n => n);
+    const unvoted = allNames.filter(n => !votedNames.has(cleanName(n)));
     const box = document.getElementById('unvotedList');
 
     if (unvoted.length === 0) {
@@ -400,46 +379,48 @@ function showUnvoted(wd) {
         return;
     }
 
-    const teacherVoted = wd.votes.some(v => v.role === 'teacher');
-    const teacherHtml = !teacherVoted ? `<div class="unvoted-item" style="background:#ff9800;color:white;font-weight:bold;">${cfg.teacherName}（老师）</div>` : '';
-    box.innerHTML = teacherHtml + unvoted.map(n => `<div class="unvoted-item">${n}</div>`).join('');
+    box.innerHTML = unvoted.map(n => `<div class="unvoted-item">${n}</div>`).join('');
 }
 
+// ========== 投票页面初始化（核心修复：从链接读数据） ==========
 function initVotePage() {
-    const q = new URLSearchParams(location.search);
-    const weekId = q.get('week');
-    if (!weekId) { alert('缺少周次信息'); location.href = '?'; return; }
-    const wd = getWeekData(weekId); if (!wd) { alert('无此周次'); location.href = '?'; return; }
+    const dataParam = getUrlParam('d');
+    if (!dataParam) { alert('缺少投票数据'); location.href='?'; return; }
 
-    document.getElementById('adminPage').classList.add('hidden');
-    document.getElementById('votePage').classList.remove('hidden');
-    document.getElementById('votePageInfo').innerText = wd.weekName + ' - 共' + wd.groups.length + '个小组';
+    try {
+        const voteData = JSON.parse(b64Decode(dataParam));
+        window.voteData = voteData;
 
-    const scoreBox = document.getElementById('scoreInputs');
-    scoreBox.innerHTML = '';
-    wd.groups.forEach((g, i) => {
-        const div = document.createElement('div');
-        div.className = 'score-item';
-        div.innerHTML = `<label>${g}</label><input type="number" id="score_${i}" min="0" max="10" step="0.5" placeholder="0-10">`;
-        scoreBox.appendChild(div);
-    });
+        document.getElementById('adminPage').classList.add('hidden');
+        document.getElementById('votePage').classList.remove('hidden');
+        document.getElementById('votePageInfo').innerText = `${voteData.n} - 共${voteData.g.length}个小组`;
 
-    window.currentWeekId = weekId;
-    window.currentWeekData = wd;
+        // 生成打分项
+        const scoreBox = document.getElementById('scoreInputs');
+        scoreBox.innerHTML = '';
+        voteData.g.forEach((g, i) => {
+            const div = document.createElement('div');
+            div.className = 'score-item';
+            div.innerHTML = `<label>${g}</label><input type="number" id="score_${i}" min="0" max="10" step="0.5" placeholder="0-10">`;
+            scoreBox.appendChild(div);
+        });
+    } catch (e) {
+        alert('投票链接无效，请重新生成！');
+        location.href='?';
+    }
 }
 
+// ========== 姓名校验 ==========
 function checkName() {
-    const val = document.getElementById('voterName').value.trim();
-    const cfg = getConfig();
-    const all = [...cfg.studentList];
-    if (cfg.includeTeacher) all.push(cfg.teacherName);
-
+    const val = cleanName(document.getElementById('voterName').value);
+    const voteData = window.voteData;
+    const allNames = [...voteData.s, voteData.t].filter(n => n);
     const drop = document.getElementById('nameDropdown');
     const hint = document.getElementById('nameHint');
 
     if (!val) { drop.classList.add('hidden'); hint.classList.remove('show'); return; }
 
-    const matches = all.filter(n => n.includes(val));
+    const matches = allNames.filter(n => cleanName(n).includes(val));
     if (matches.length > 0 && matches.length < 10) {
         drop.innerHTML = matches.map(m => `<div class="auto-complete-item" onclick="selectName('${m}')">${m}</div>`).join('');
         drop.classList.remove('hidden');
@@ -447,13 +428,9 @@ function checkName() {
         drop.classList.add('hidden');
     }
 
-    const isOk = (val === cfg.teacherName) || cfg.studentList.includes(val);
-    if (isOk) {
-        hint.classList.remove('show');
-    } else {
-        hint.innerText = '未找到该姓名，请确认';
-        hint.classList.add('show');
-    }
+    const isOk = (val === cleanName(voteData.t)) || voteData.s.some(n => cleanName(n) === val);
+    hint.innerText = isOk ? '' : '未找到该姓名，请确认';
+    hint.classList.toggle('show', !isOk);
 }
 
 function selectName(n) {
@@ -462,21 +439,25 @@ function selectName(n) {
     checkName();
 }
 
+// ========== 提交投票 ==========
 function submitVote() {
     const name = document.getElementById('voterName').value.trim();
-    const role = document.querySelector('input[name="role"]:checked').value;
-    if (!name) { alert('请输入姓名'); return; }
+    const clean = cleanName(name);
+    const voteData = window.voteData;
+    const voteKey = `vote_${voteData.w}`;
+    const votes = JSON.parse(localStorage.getItem(voteKey) || '[]');
 
-    const cfg = getConfig();
-    const isTeacher = name === cfg.teacherName;
-    const isStudent = cfg.studentList.includes(name);
+    // 校验姓名
+    const isTeacher = (clean === cleanName(voteData.t));
+    const isStudent = voteData.s.some(n => cleanName(n) === clean);
     if (!isTeacher && !isStudent) { alert('姓名不在名单中'); return; }
 
-    const wd = getWeekData(currentWeekId);
-    if (wd.votes.some(v => v.name === name)) { alert('已投过票，不能重复投'); return; }
+    // 校验重复投票
+    if (votes.some(v => cleanName(v.name) === clean)) { alert('已投过票，不能重复投'); return; }
 
+    // 校验分数
     const scores = [];
-    for (let i = 0; i < currentWeekData.groups.length; i++) {
+    for (let i = 0; i < voteData.g.length; i++) {
         const inp = document.getElementById('score_' + i);
         const s = parseFloat(inp.value);
         if (isNaN(s) || s < 0 || s > 10) {
@@ -487,44 +468,48 @@ function submitVote() {
         scores.push(s);
     }
 
-    wd.votes.push({
-        name, role, scores,
+    // 保存投票
+    votes.push({
+        name,
+        role: isTeacher ? 'teacher' : 'student',
+        scores,
         time: new Date().toLocaleString('zh-CN')
     });
-    saveWeekData(currentWeekId, wd);
+    localStorage.setItem(voteKey, JSON.stringify(votes));
 
+    // 显示成功
     document.getElementById('voteForm').classList.add('hidden');
     document.getElementById('successMessage').classList.remove('hidden');
     document.getElementById('successName').innerText = name;
 }
 
+// ========== 重置/导出/详情 ==========
 function resetWeekData() {
     const weekId = document.getElementById('weekId').value.trim();
     if (!weekId) { alert('请输入周次编号'); return; }
     if (!confirm('确定重置本周所有投票？不可恢复！')) return;
-    const db = initDB();
-    if (db.weeks[weekId]) db.weeks[weekId].votes = [];
-    saveDB(db);
+    localStorage.removeItem(`vote_${weekId}`);
     alert('已重置');
     updateStats();
 }
 
 function showVoteDetails() {
     const weekId = document.getElementById('weekId').value.trim();
-    const wd = getWeekData(weekId);
-    if (!wd) { alert('无数据'); return; }
+    const votes = JSON.parse(localStorage.getItem(`vote_${weekId}`) || '[]');
+    const groups = getGroupNames();
     const m = document.getElementById('detailModal');
     const c = document.getElementById('detailContent');
-    if (wd.votes.length === 0) {
+
+    if (votes.length === 0) {
         c.innerHTML = '<p style="padding:40px;color:#999;">暂无投票</p>';
     } else {
-        c.innerHTML = `<ul class="vote-list">${wd.votes.map(v => `
+        c.innerHTML = `<ul class="vote-list">${votes.map(v => `
         <li class="vote-item">
           <div>
             <div class="name">${v.name}${v.role === 'teacher' ? '<span class="score-badge teacher-badge">老师</span>' : ''}</div>
             <div class="time">${v.time}</div>
           </div>
-          <div class="scores">${v.scores.map((s, i) => `<span class="score-badge" title="${wd.groups[i]}">${s}</span>`).join('')}</div>
+          <div class="scores">${v.scores.map((s, i) => `<span class="score-badge" title="${groups[i]}">${s}</span>`).join('')}</div>
         </li>`).join('')}</ul>`;
     }
     m.classList.add('active');
@@ -536,11 +521,12 @@ function closeModal() {
 
 function exportToCSV() {
     const weekId = document.getElementById('weekId').value.trim();
-    const wd = getWeekData(weekId);
-    if (!wd || wd.votes.length === 0) { alert('无数据可导出'); return; }
+    const votes = JSON.parse(localStorage.getItem(`vote_${weekId}`) || '[]');
+    const groups = getGroupNames();
+    if (votes.length === 0) { alert('无数据可导出'); return; }
 
-    const head = ['序号', '姓名', '身份', '时间', ...wd.groups];
-    const rows = wd.votes.map((v, i) => [
+    const head = ['序号', '姓名', '身份', '时间', ...groups];
+    const rows = votes.map((v, i) => [
         i + 1,
         v.name,
         v.role === 'teacher' ? '老师' : '学生',
@@ -554,13 +540,42 @@ function exportToCSV() {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = wd.weekName + '_投票数据.csv';
+    a.download = `投票数据_${weekId}.csv`;
     a.click();
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-    const q = new URLSearchParams(location.search);
-    if (q.get('week')) {
+// ========== 页面初始化（替换所有onclick） ==========
+document.addEventListener('DOMContentLoaded', function() {
+    // 绑定按钮事件
+    document.getElementById('saveConfigBtn').addEventListener('click', saveConfig);
+    document.getElementById('genQRBtn').addEventListener('click', generateQRCode);
+    document.getElementById('resetBtn').addEventListener('click', resetWeekData);
+    document.getElementById('detailBtn').addEventListener('click', showVoteDetails);
+    document.getElementById('exportBtn').addEventListener('click', exportToCSV);
+    document.getElementById('submitVoteBtn').addEventListener('click', submitVote);
+
+    // 小组数量变化
+    document.getElementById('groupCount').addEventListener('change', generateGroupInputs);
+
+    // 姓名输入监听
+    document.getElementById('voterName').addEventListener('input', checkName);
+
+    // 点击空白关闭下拉
+    document.addEventListener('click', e => {
+        if (!e.target.closest('#voterName') && !e.target.closest('#nameDropdown')) {
+            document.getElementById('nameDropdown').classList.add('hidden');
+        }
+    });
+
+    // 模态框关闭
+    const modal = document.getElementById('detailModal');
+    modal.addEventListener('click', e => {
+        if (e.target === modal) closeModal();
+    });
+
+    // 初始化
+    const dataParam = getUrlParam('d');
+    if (dataParam) {
         initVotePage();
     } else {
         loadConfig();
@@ -572,17 +587,6 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('weekName').value = `${y}年第${getWeekNumber()}周`;
         document.getElementById('weekId').addEventListener('input', updateStats);
     }
-
-    document.addEventListener('click', e => {
-        if (!e.target.closest('#voterName') && !e.target.closest('#nameDropdown')) {
-            document.getElementById('nameDropdown').classList.add('hidden');
-        }
-    });
-
-    const modal = document.getElementById('detailModal');
-    modal.addEventListener('click', e => {
-        if (e.target === modal) closeModal();
-    });
 });
 </script>
 </body>
