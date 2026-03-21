@@ -1,29 +1,31 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>班级小组展示打分系统</title>
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <!-- 使用国内稳定的 CDN，解决加载超时问题 -->
+    <script src="https://cdn.staticfile.org/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 <div class="container">
     <div id="adminPage">
         <div class="header">
-            <h1> 班级小组展示打分系统</h1>
+            <h1>班级小组展示打分系统</h1>
             <p>轻松管理每周小组展示，实时统计投票结果</p>
         </div>
+
         <div class="card">
             <h2 class="card-title">系统配置</h2>
             <div class="row">
                 <div>
                     <div class="form-group">
                         <label>班级名称</label>
-                        <input type="text" id="className" class="form-control" value="高三 (1) 班">
+                        <input type="text" id="className" class="form-control" value="高三(1)班">
                     </div>
                     <div class="form-group">
                         <label>总人数（含老师）</label>
-                        <input type="number" id="totalPeople" class="form-control" value="55">
+                        <input type="number" id="totalPeople" class="form-control" value="55" min="1" readonly style="background:#f5f5f5;">
                     </div>
                     <div class="form-group">
                         <label>老师姓名</label>
@@ -37,9 +39,10 @@
                     </div>
                 </div>
             </div>
-            <button class="btn btn-primary" onclick="saveConfig()"> 保存配置</button>
-            <span id="configSaved" style="color:#4CAF50;margin-left:10px;display:none;"> 已保存</span>
+            <button class="btn btn-primary" onclick="saveConfig()">保存配置</button>
+            <span id="configSaved" style="color:#4CAF50;margin-left:10px;display:none;">已保存</span>
         </div>
+
         <div class="card">
             <h2 class="card-title">本周展示配置</h2>
             <div class="row">
@@ -67,9 +70,10 @@
                     </div>
                 </div>
             </div>
-            <button class="btn btn-success" onclick="generateQRCode()"> 生成本周二维码</button>
-            <button class="btn btn-danger" onclick="resetWeekData()"> 重置本周数据</button>
+            <button class="btn btn-success" onclick="generateQRCode()">生成本周二维码</button>
+            <button class="btn btn-danger" onclick="resetWeekData()">重置本周数据</button>
         </div>
+
         <div class="card" id="qrCard" style="display:none;">
             <h2 class="card-title">扫码投票</h2>
             <div class="qr-container">
@@ -77,6 +81,7 @@
                 <p id="qrInfo" style="margin-top:15px;color:#666;"></p>
             </div>
         </div>
+
         <div class="card">
             <h2 class="card-title">实时统计看板</h2>
             <div class="stats-grid">
@@ -86,23 +91,24 @@
                 <div class="stat-card" style="background:linear-gradient(135deg,#43e97b 0%,#38f9d7 100%);"><h3 id="groupCountStat">-</h3><p>展示小组数</p></div>
             </div>
             <div class="progress-bar"><div class="progress-fill" id="progressBar" style="width:0%;">0%</div></div>
-            <h3 style="margin:20px 0 15px;"> 小组排名</h3>
+            <h3 style="margin:20px 0 15px;">小组排名</h3>
             <div id="groupRankings" class="row"></div>
-            <h3 style="margin:20px 0 15px;"> 未投票名单</h3>
+            <h3 style="margin:20px 0 15px;">未投票名单</h3>
             <div id="unvotedList" class="unvoted-list"></div>
             <div style="margin-top:20px;">
-                <button class="btn btn-secondary" onclick="showVoteDetails()"> 查看详细投票列表</button>
-                <button class="btn btn-warning" onclick="exportToCSV()"> 导出 CSV</button>
+                <button class="btn btn-secondary" onclick="showVoteDetails()">查看详细投票列表</button>
+                <button class="btn btn-warning" onclick="exportToCSV()">导出 CSV</button>
             </div>
         </div>
     </div>
+
     <div id="votePage" class="vote-page hidden">
         <div class="header">
-            <h1> 小组展示投票</h1>
+            <h1>小组展示投票</h1>
             <p id="votePageInfo">请认真为每个小组打分</p>
         </div>
         <div class="vote-form" id="voteForm">
-            <div class="form-group">
+            <div class="form-group" style="position: relative;">
                 <label>您的姓名</label>
                 <input type="text" id="voterName" class="form-control" placeholder="请输入您的真实姓名" oninput="checkName()">
                 <div id="nameHint" class="hint-text"></div>
@@ -117,50 +123,26 @@
             </div>
             <h3 style="margin:20px 0 15px;">请为以下小组打分（0-10 分）</h3>
             <div id="scoreInputs" class="score-inputs"></div>
-            <button class="btn btn-primary" onclick="submitVote()" style="width:100%;margin-top:20px;padding:15px;"> 提交投票</button>
+            <button class="btn btn-primary" onclick="submitVote()" style="width:100%;margin-top:20px;padding:15px;">提交投票</button>
         </div>
         <div id="successMessage" class="success-message hidden">
-            <h2> 投票成功！</h2>
+            <h2>投票成功！</h2>
             <p style="font-size:1.2em;margin-top:10px;">谢谢 <span id="successName"></span> 的参与！</p>
-            <button class="btn btn-secondary" onclick="location.href='?'" style="margin-top:20px;"> 返回主页</button>
+            <button class="btn btn-secondary" onclick="location.href='?'" style="margin-top:20px;">返回主页</button>
         </div>
     </div>
 </div>
+
 <div id="detailModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h2> 详细投票列表</h2>
+            <h2>详细投票列表</h2>
             <span class="modal-close" onclick="closeModal()">&times;</span>
         </div>
         <div id="detailContent"></div>
     </div>
 </div>
-<script>
-const DB_KEY='class_voting_system';
-function initDB(){let db=localStorage.getItem(DB_KEY);if(!db){const data={config:{className:'高三 (1) 班',totalStudents:54,teacherName:'张老师',studentList:[],includeTeacher:true},weeks:{}};localStorage.setItem(DB_KEY,JSON.stringify(data));db=JSON.stringify(data);}return JSON.parse(db);}
-function saveDB(data){localStorage.setItem(DB_KEY,JSON.stringify(data));}
-function getConfig(){return initDB().config;}
-function getWeekData(weekId){const db=initDB();return db.weeks[weekId]||null;}
-function saveWeekData(weekId,data){const db=initDB();db.weeks[weekId]=data;saveDB(db);}
-function saveConfig(){const className=document.getElementById('className').value;const teacherName=document.getElementById('teacherName').value;const studentListText=document.getElementById('studentList').value;const studentList=studentListText.split('\n').map(s=>s.trim()).filter(s=>s&&s.length>0);const config={className,totalStudents:studentList.length,teacherName,studentList,includeTeacher:true};const db=initDB();db.config=config;saveDB(db);const savedMsg=document.getElementById('configSaved');savedMsg.style.display='inline';setTimeout(()=>savedMsg.style.display='none',2000);updateStats();}
-function loadConfig(){const config=getConfig();document.getElementById('className').value=config.className||'';const total=config.totalStudents+(config.includeTeacher?1:0);document.getElementById('totalPeople').value=total;document.getElementById('teacherName').value=config.teacherName||'';document.getElementById('studentList').value=(config.studentList||[]).join('\n');}
-function generateGroupInputs(){const count=parseInt(document.getElementById('groupCount').value);const container=document.getElementById('groupInputs');container.innerHTML='';for(let i=1;i<=count;i++){const div=document.createElement('div');div.className='form-group';div.innerHTML='<label>第'+i+'组名称</label><input type="text" class="form-control group-name-input" value="第'+i+'组">';container.appendChild(div);}}
-function getGroupNames(){const inputs=document.querySelectorAll('.group-name-input');return Array.from(inputs).map(input=>input.value.trim()).filter(name=>name);}
-function generateQRCode(){const weekId=document.getElementById('weekId').value.trim();const weekName=document.getElementById('weekName').value.trim();if(!weekId){alert('请输入周次编号！');return;}const groupNames=getGroupNames();const totalPeople=document.getElementById('totalPeople').value;const finalWeekName=weekName||new Date().getFullYear()+'年第'+getWeekNumber()+'周';const weekData={weekName:finalWeekName,total:parseInt(totalPeople),groups:groupNames,votes:[]};saveWeekData(weekId,weekData);const baseUrl=window.location.href.split('?')[0];const qrUrl=baseUrl+'?week='+encodeURIComponent(weekId)+'&total='+totalPeople;document.getElementById('qrcode').innerHTML='';new QRCode(document.getElementById('qrcode'),{text:qrUrl,width:256,height:256,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});document.getElementById('qrInfo').innerHTML='<strong>周次：</strong>'+finalWeekName+' | <strong>总人数：</strong>'+totalPeople+'人 | <strong>小组数：</strong>'+groupNames.length+'组';document.getElementById('qrCard').style.display='block';updateStats();document.getElementById('qrCard').scrollIntoView({behavior:'smooth'});}
-function getWeekNumber(){const now=new Date();const startOfYear=new Date(now.getFullYear(),0,1);const days=Math.floor((now-startOfYear)/(24*60*60*1000));return Math.ceil((days+startOfYear.getDay()+1)/7);}
-function updateStats(){const weekId=document.getElementById('weekId').value.trim();if(!weekId)return;const weekData=getWeekData(weekId);if(!weekData)return;const totalPeople=weekData.total;const votedCount=weekData.votes.length;const progress=((votedCount/totalPeople)*100).toFixed(1);document.getElementById('votedCount').textContent=votedCount+'/'+totalPeople;document.getElementById('voteProgress').textContent=progress+'%';document.getElementById('currentWeek').textContent=weekData.weekName.split('年')[1]||'-';document.getElementById('groupCountStat').textContent=weekData.groups.length+'个';const progressBar=document.getElementById('progressBar');progressBar.style.width=progress+'%';progressBar.textContent=progress+'%';calculateGroupStats(weekData);showUnvotedList(weekData);}
-function calculateGroupStats(weekData){const votes=weekData.votes;const groups=weekData.groups;const container=document.getElementById('groupRankings');if(votes.length===0){container.innerHTML='<p style="color:#999;padding:20px;">暂无投票数据</p>';return;}const groupScores=groups.map((groupName,index)=>{let totalScore=0;votes.forEach(vote=>{if(vote.scores[index]!==undefined){totalScore+=parseFloat(vote.scores[index]);}});const avgScore=(totalScore/votes.length).toFixed(2);return{name:groupName,totalScore:totalScore.toFixed(2),avgScore};});groupScores.sort((a,b)=>parseFloat(b.avgScore)-parseFloat(a.avgScore));const rankColors=['linear-gradient(135deg,#f093fb 0%,#f5576c 100%)','linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)','linear-gradient(135deg,#43e97b 0%,#38f9d7 100%)','linear-gradient(135deg,#fa709a 0%,#fee140 100%)'];container.innerHTML=groupScores.map((group,index)=>{const color=rankColors[index%rankColors.length];return '<div class="stat-card" style="background:'+color+';position:relative;"><span class="rank-badge">#'+(index+1)+'</span><h3 style="margin-top:15px;">'+group.name+'</h3><p style="font-size:1.5em;margin:10px 0;">'+group.avgScore+'分</p><p style="font-size:0.9em;">总分：'+group.totalScore+'</p></div>';}).join('');}
-function showUnvotedList(weekData){const config=getConfig();const votedNames=new Set(weekData.votes.map(v=>v.name));const allNames=[...config.studentList];if(config.includeTeacher){allNames.push(config.teacherName);}const unvoted=allNames.filter(name=>!votedNames.has(name));const container=document.getElementById('unvotedList');if(unvoted.length===0){container.innerHTML='<p style="text-align:center;color:#4CAF50;padding:20px;"> 所有人都已投票！</p>';return;}const teacherVoted=weekData.votes.some(v=>v.role==='teacher');const teacherHtml=!teacherVoted?'<div class="unvoted-item" style="background:#ff9800;color:white;font-weight:bold;">'+config.teacherName+' (老师)</div>':'';container.innerHTML=teacherHtml+unvoted.map(name=>'<div class="unvoted-item">'+name+'</div>').join('');}
-function initVotePage(){const params=new URLSearchParams(window.location.search);const weekId=params.get('week');if(!weekId){alert('缺少周次信息，请从管理页面进入！');location.href='?';return;}const weekData=getWeekData(weekId);if(!weekData){alert('未找到该周次数据！');location.href='?';return;}document.getElementById('adminPage').classList.add('hidden');document.getElementById('votePage').classList.remove('hidden');document.getElementById('votePageInfo').textContent=weekData.weekName+' - 共'+weekData.groups.length+'个小组展示';const scoreContainer=document.getElementById('scoreInputs');scoreContainer.innerHTML='';weekData.groups.forEach((groupName,index)=>{const div=document.createElement('div');div.className='score-item';div.innerHTML='<label>'+groupName+'</label><input type="number" id="score_'+index+'" min="0" max="10" step="0.5" value="" placeholder="0-10">';scoreContainer.appendChild(div);});window.currentWeekData=weekData;window.currentWeekId=weekId;}
-function checkName(){const nameInput=document.getElementById('voterName');const name=nameInput.value.trim();const hintDiv=document.getElementById('nameHint');const dropdown=document.getElementById('nameDropdown');const config=getConfig();const allNames=[...config.studentList];if(config.includeTeacher){allNames.push(config.teacherName);}if(name.length>0){const matches=allNames.filter(n=>n.includes(name));if(matches.length>0&&matches.length<10){dropdown.innerHTML=matches.map(m=>'<div class="auto-complete-item" onclick="selectName(\''+m+'\')">'+m+'</div>').join('');dropdown.classList.remove('hidden');}else{dropdown.classList.add('hidden');}}else{dropdown.classList.add('hidden');}if(name.length===0){hintDiv.classList.remove('show');return;}const isTeacher=name===config.teacherName;const isStudent=config.studentList.includes(name);if(isTeacher||isStudent){hintDiv.textContent='';hintDiv.classList.remove('show');}else{hintDiv.textContent=' 未找到该姓名，请确认是否在名单中';hintDiv.classList.add('show');}}
-function selectName(name){document.getElementById('voterName').value=name;document.getElementById('nameDropdown').classList.add('hidden');checkName();}
-function submitVote(){const name=document.getElementById('voterName').value.trim();const role=document.querySelector('input[name="role"]:checked').value;if(!name){alert('请输入您的姓名！');return;}const config=getConfig();const isTeacher=name===config.teacherName;const isStudent=config.studentList.includes(name);if(!isTeacher&&!isStudent){alert('姓名不在名单中，请确认！');return;}const weekData=getWeekData(window.currentWeekId);const hasVoted=weekData.votes.some(v=>v.name===name);if(hasVoted){alert('您已经投过票了，不能重复投票！');return;}const scores=[];const weekDataCurrent=window.currentWeekData;for(let i=0;i<weekDataCurrent.groups.length;i++){const scoreInput=document.getElementById('score_'+i);const score=scoreInput.value;if(!score||isNaN(parseFloat(score))){alert('请为'+weekDataCurrent.groups[i]+'打分！');scoreInput.focus();return;}const scoreNum=parseFloat(score);if(scoreNum<0||scoreNum>10){alert('分数必须在 0-10 之间！（'+weekDataCurrent.groups[i]+'）');scoreInput.focus();return;}scores.push(scoreNum);}const vote={name:name,role:role,scores:scores,time:new Date().toLocaleString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'})};weekData.votes.push(vote);saveWeekData(window.currentWeekId,weekData);document.getElementById('voteForm').classList.add('hidden');document.getElementById('successMessage').classList.remove('hidden');document.getElementById('successName').textContent=name;}
-function resetWeekData(){const weekId=document.getElementById('weekId').value.trim();if(!weekId){alert('请先输入周次编号！');return;}if(!confirm('确定要重置本周所有投票数据吗？此操作不可恢复！')){return;}const db=initDB();if(db.weeks[weekId]){db.weeks[weekId].votes=[];saveDB(db);alert('本周数据已重置！');updateStats();}else{alert('本周数据不存在！');}}
-function showVoteDetails(){const weekId=document.getElementById('weekId').value.trim();if(!weekId){alert('请先输入周次编号！');return;}const weekData=getWeekData(weekId);if(!weekData){alert('本周数据不存在！');return;}const modal=document.getElementById('detailModal');const content=document.getElementById('detailContent');if(weekData.votes.length===0){content.innerHTML='<p style="text-align:center;color:#999;padding:40px;">暂无投票记录</p>';}else{content.innerHTML='<ul class="vote-list">'+weekData.votes.map((vote,index)=>'<li class="vote-item"><div><div class="name">'+vote.name+(vote.role==='teacher'?'<span class="score-badge teacher-badge">老师</span>':'')+'</div><div class="time">'+vote.time+'</div></div><div class="scores">'+vote.scores.map((score,i)='<span class="score-badge" title="'+weekData.groups[i]+'">'+score+'</span>').join('')+'</div></li>').join('')+'</ul>';}modal.classList.add('active');}
-function closeModal(){document.getElementById('detailModal').classList.remove('active');}
-function exportToCSV(){const weekId=document.getElementById('weekId').value.trim();if(!weekId){alert('请先输入周次编号！');return;}const weekData=getWeekData(weekId);if(!weekData){alert('本周数据不存在！');return;}if(weekData.votes.length===0){alert('暂无投票数据可导出！');return;}const headers=['序号','姓名','身份','时间',...weekData.groups.map(g=>g+'得分')];const rows=weekData.votes.map((vote,index)=>[index+1,vote.name,vote.role==='teacher'?'老师':'学生',vote.time,...vote.scores]);let csvContent='\uFEFF'+headers.join(',')+'\n';rows.forEach(row=>{csvContent+=row.join(',')+'\n';});const blob=new Blob([csvContent],{type:'text/csv;charset=utf-8;'});const link=document.createElement('a');const url=URL.createObjectURL(blob);link.setAttribute('href',url);link.setAttribute('download',weekData.weekName+'_投票数据.csv');link.style.visibility='hidden';document.body.appendChild(link);link.click();document.body.removeChild(link);}
-window.addEventListener('DOMContentLoaded',()=>{const params=new URLSearchParams(window.location.search);if(params.get('week')){initVotePage();}else{loadConfig();generateGroupInputs();const now=new Date();const weekId=now.getFullYear()+String(now.getMonth()+1).padStart(2,'0');const weekName=now.getFullYear()+'年第'+getWeekNumber()+'周';document.getElementById('weekId').value=weekId;document.getElementById('weekName').value=weekName;document.getElementById('weekId').addEventListener('input',updateStats);}document.addEventListener('click',(e)=>{if(!e.target.closest('#voterName')&&!e.target.closest('#nameDropdown')){document.getElementById('nameDropdown').classList.add('hidden');}});document.getElementById('detailModal').addEventListener('click',(e)=>{if(e.target.id==='detailModal'){closeModal();}});document.querySelector('.modal-content').addEventListener('click',(e)=>{e.stopPropagation();});});
-</script>
+
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 :root{--primary-color:#4CAF50;--secondary-color:#2196F3;--danger-color:#f44336;--warning-color:#ff9800;--success-color:#8BC34A;}
@@ -226,5 +208,476 @@ textarea.form-control{min-height:150px;resize:vertical;}
 .teacher-badge{background:var(--warning-color);}
 @media(max-width:768px){.header h1{font-size:1.8em;}.row{grid-template-columns:1fr;}.stats-grid{grid-template-columns:repeat(2,1fr);}.btn{width:100%;}}
 </style>
+
+<script>
+const DB_KEY = 'class_voting_system';
+
+function initDB() {
+    let db = localStorage.getItem(DB_KEY);
+    if (!db) {
+        const data = {
+            config: {
+                className: '高三(1)班',
+                totalStudents: 54,
+                teacherName: '张老师',
+                studentList: [],
+                includeTeacher: true
+            },
+            weeks: {}
+        };
+        localStorage.setItem(DB_KEY, JSON.stringify(data));
+        return data;
+    }
+    return JSON.parse(db);
+}
+
+function saveDB(data) {
+    localStorage.setItem(DB_KEY, JSON.stringify(data));
+}
+
+function getConfig() {
+    return initDB().config;
+}
+
+function getWeekData(weekId) {
+    const db = initDB();
+    return db.weeks[weekId] || null;
+}
+
+function saveWeekData(weekId, data) {
+    const db = initDB();
+    db.weeks[weekId] = data;
+    saveDB(db);
+}
+
+function saveConfig() {
+    const className = document.getElementById('className').value;
+    const teacherName = document.getElementById('teacherName').value.trim();
+    const studentListText = document.getElementById('studentList').value;
+    const studentList = studentListText.split('\n')
+        .map(s => s.trim())
+        .filter(s => s && s.length > 0);
+
+    const config = {
+        className,
+        totalStudents: studentList.length,
+        teacherName,
+        studentList,
+        includeTeacher: true
+    };
+
+    // 自动计算总人数并更新显示
+    const totalPeople = studentList.length + 1;
+    document.getElementById('totalPeople').value = totalPeople;
+
+    const db = initDB();
+    db.config = config;
+    saveDB(db);
+
+    const savedMsg = document.getElementById('configSaved');
+    savedMsg.style.display = 'inline';
+    setTimeout(() => savedMsg.style.display = 'none', 2000);
+    alert('配置已保存！');
+    updateStats();
+}
+
+function loadConfig() {
+    const config = getConfig();
+    document.getElementById('className').value = config.className || '';
+    const total = config.totalStudents + (config.includeTeacher ? 1 : 0);
+    document.getElementById('totalPeople').value = total;
+    document.getElementById('teacherName').value = config.teacherName || '';
+    document.getElementById('studentList').value = (config.studentList || []).join('\n');
+}
+
+function generateGroupInputs() {
+    const count = parseInt(document.getElementById('groupCount').value);
+    const container = document.getElementById('groupInputs');
+    container.innerHTML = '';
+    for (let i = 1; i <= count; i++) {
+        const div = document.createElement('div');
+        div.className = 'form-group';
+        div.innerHTML = `<label>第${i}组名称</label><input type="text" class="form-control group-name-input" value="第${i}组">`;
+        container.appendChild(div);
+    }
+}
+
+function getGroupNames() {
+    return Array.from(document.querySelectorAll('.group-name-input')).map(i => i.value.trim()).filter(Boolean);
+}
+
+function getWeekNumber() {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 1);
+    const days = Math.floor((now - start) / 86400000);
+    return Math.ceil((days + start.getDay() + 1) / 7);
+}
+
+function generateQRCode() {
+    // 检查 QRCode 库是否加载成功
+    if (typeof QRCode === 'undefined') {
+        alert('二维码库加载失败，请检查网络或刷新页面重试。\n您也可以手动复制下方链接到手机浏览器打开。');
+        // 生成链接供手动使用
+        const baseUrl = window.location.href.split('?')[0].split('#')[0];
+        const weekId = document.getElementById('weekId').value.trim();
+        if (weekId) {
+            const manualUrl = baseUrl + '?week=' + encodeURIComponent(weekId);
+            document.getElementById('qrInfo').innerHTML = `<strong>投票链接（请复制）：</strong><br><a href="${manualUrl}" target="_blank">${manualUrl}</a>`;
+            document.getElementById('qrCard').style.display = 'block';
+        }
+        return;
+    }
+
+    const weekId = document.getElementById('weekId').value.trim();
+    if (!weekId) {
+        alert('请输入周次编号！');
+        return;
+    }
+
+    // 检查是否已存在投票数据，若有则询问是否覆盖
+    const existing = getWeekData(weekId);
+    if (existing && existing.votes && existing.votes.length > 0) {
+        if (!confirm('该周次已有投票数据，重新生成二维码将清空所有投票记录。确定继续吗？')) {
+            return;
+        }
+    }
+
+    const weekName = document.getElementById('weekName').value.trim();
+    const groupNames = getGroupNames();
+    const total = parseInt(document.getElementById('totalPeople').value);
+    const finalName = weekName || `${new Date().getFullYear()}年第${getWeekNumber()}周`;
+
+    const weekData = { weekName: finalName, total, groups: groupNames, votes: [] };
+    saveWeekData(weekId, weekData);
+
+    // 使用当前页面的完整 URL（移除 hash 和已有参数）
+    const baseUrl = window.location.href.split('?')[0].split('#')[0];
+    const voteUrl = baseUrl + '?week=' + encodeURIComponent(weekId);
+
+    document.getElementById('qrcode').innerHTML = '';
+    new QRCode(document.getElementById('qrcode'), {
+        text: voteUrl,
+        width: 256,
+        height: 256,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+    });
+
+    document.getElementById('qrInfo').innerHTML = 
+        `<strong>周次：</strong>${finalName} | <strong>总人数：</strong>${total}人 | <strong>小组数：</strong>${groupNames.length}组`;
+    document.getElementById('qrCard').style.display = 'block';
+    updateStats();
+    document.getElementById('qrCard').scrollIntoView({ behavior: 'smooth' });
+    console.log('投票链接：', voteUrl);
+}
+
+function updateStats() {
+    const weekId = document.getElementById('weekId').value.trim();
+    const wd = getWeekData(weekId);
+    if (!wd) return;
+    const total = wd.total;
+    const voted = wd.votes.length;
+    const pct = total === 0 ? 0 : ((voted / total) * 100).toFixed(1);
+
+    document.getElementById('votedCount').innerText = `${voted}/${total}`;
+    document.getElementById('voteProgress').innerText = pct + '%';
+    document.getElementById('currentWeek').innerText = wd.weekName.split('年')[1] || '-';
+    document.getElementById('groupCountStat').innerText = wd.groups.length + '个';
+
+    const pb = document.getElementById('progressBar');
+    pb.style.width = pct + '%';
+    pb.innerText = pct + '%';
+
+    calcGroups(wd);
+    showUnvoted(wd);
+}
+
+function calcGroups(wd) {
+    const container = document.getElementById('groupRankings');
+    if (wd.votes.length === 0) {
+        container.innerHTML = '<p style="padding:20px;color:#999;">暂无投票数据</p>';
+        return;
+    }
+    const scores = wd.groups.map((g, i) => {
+        let sum = 0;
+        wd.votes.forEach(v => sum += parseFloat(v.scores[i] || 0));
+        const avg = (sum / wd.votes.length).toFixed(2);
+        return { name: g, sum: sum.toFixed(2), avg };
+    });
+    scores.sort((a, b) => parseFloat(b.avg) - parseFloat(a.avg));
+    const colors = [
+        'linear-gradient(135deg,#f093fb 0%,#f5576c 100%)',
+        'linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)',
+        'linear-gradient(135deg,#43e97b 0%,#38f9d7 100%)',
+        'linear-gradient(135deg,#fa709a 0%,#fee140 100%)'
+    ];
+    container.innerHTML = scores.map((g, k) => `
+    <div class="stat-card" style="background:${colors[k % colors.length]};position:relative;">
+      <span class="rank-badge">#${k+1}</span>
+      <h3 style="margin-top:15px;">${escapeHtml(g.name)}</h3>
+      <p style="font-size:1.5em;margin:10px 0;">${g.avg}分</p>
+      <p style="font-size:0.9em;">总分：${g.sum}</p>
+    </div>`).join('');
+}
+
+function showUnvoted(wd) {
+    const cfg = getConfig();
+    const voted = new Set(wd.votes.map(v => v.name.trim()));
+    const all = [...cfg.studentList];
+    if (cfg.includeTeacher) all.push(cfg.teacherName);
+    const unvoted = all.filter(n => !voted.has(n.trim()));
+    const box = document.getElementById('unvotedList');
+
+    if (unvoted.length === 0) {
+        box.innerHTML = '<p style="color:#4CAF50;padding:20px;">所有人都已投票！</p>';
+        return;
+    }
+
+    const teacherVoted = wd.votes.some(v => v.role === 'teacher');
+    const teacherHtml = !teacherVoted ? `<div class="unvoted-item" style="background:#ff9800;color:white;font-weight:bold;">${escapeHtml(cfg.teacherName)}（老师）</div>` : '';
+    box.innerHTML = teacherHtml + unvoted.map(n => `<div class="unvoted-item">${escapeHtml(n)}</div>`).join('');
+}
+
+function initVotePage() {
+    const q = new URLSearchParams(location.search);
+    const weekId = q.get('week');
+    if (!weekId) { alert('缺少周次信息'); location.href = '?'; return; }
+    const wd = getWeekData(weekId);
+    if (!wd) { alert('无此周次数据，请返回主页重新生成二维码'); location.href = '?'; return; }
+
+    document.getElementById('adminPage').classList.add('hidden');
+    document.getElementById('votePage').classList.remove('hidden');
+    document.getElementById('votePageInfo').innerText = wd.weekName + ' - 共' + wd.groups.length + '个小组';
+
+    const scoreBox = document.getElementById('scoreInputs');
+    scoreBox.innerHTML = '';
+    wd.groups.forEach((g, i) => {
+        const div = document.createElement('div');
+        div.className = 'score-item';
+        div.innerHTML = `<label>${escapeHtml(g)}</label><input type="number" id="score_${i}" min="0" max="10" step="0.5" placeholder="0-10">`;
+        scoreBox.appendChild(div);
+    });
+
+    window.currentWeekId = weekId;
+    window.currentWeekData = wd;
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
+        return c;
+    });
+}
+
+function checkName() {
+    const nameInput = document.getElementById('voterName');
+    const rawName = nameInput.value;
+    const name = rawName.trim();
+    const hintDiv = document.getElementById('nameHint');
+    const dropdown = document.getElementById('nameDropdown');
+
+    const config = getConfig();
+    const allNames = [...config.studentList];
+    if (config.includeTeacher) allNames.push(config.teacherName);
+    const trimmedNames = allNames.map(n => n.trim());
+
+    if (name.length > 0) {
+        const matches = trimmedNames.filter(n => n.includes(name));
+        if (matches.length > 0 && matches.length < 10) {
+            dropdown.innerHTML = matches.map(m => `<div class="auto-complete-item" onclick="selectName('${m.replace(/'/g, "\\'")}')">${escapeHtml(m)}</div>`).join('');
+            dropdown.classList.remove('hidden');
+        } else {
+            dropdown.classList.add('hidden');
+        }
+    } else {
+        dropdown.classList.add('hidden');
+    }
+
+    if (name.length === 0) {
+        hintDiv.classList.remove('show');
+        return;
+    }
+
+    const isTeacher = name === config.teacherName.trim();
+    const isStudent = config.studentList.some(s => s.trim() === name);
+
+    if (isTeacher || isStudent) {
+        hintDiv.textContent = '';
+        hintDiv.classList.remove('show');
+        if (isTeacher) {
+            document.querySelector('input[name="role"][value="teacher"]').checked = true;
+        }
+    } else {
+        hintDiv.textContent = '未找到该姓名，请确认是否在名单中（注意前后空格）';
+        hintDiv.classList.add('show');
+        console.log('输入姓名:', `"${name}"`);
+        console.log('当前学生名单:', config.studentList.map(s => `"${s}"`).join(', '));
+        console.log('老师姓名:', `"${config.teacherName}"`);
+    }
+}
+
+function selectName(name) {
+    document.getElementById('voterName').value = name;
+    document.getElementById('nameDropdown').classList.add('hidden');
+    checkName();
+}
+
+function submitVote() {
+    const rawName = document.getElementById('voterName').value;
+    const name = rawName.trim();
+    const roleElem = document.querySelector('input[name="role"]:checked');
+    if (!roleElem) return;
+    const role = roleElem.value;
+
+    if (!name) {
+        alert('请输入您的姓名！');
+        return;
+    }
+
+    const config = getConfig();
+    const isTeacher = name === config.teacherName.trim();
+    const isStudent = config.studentList.some(s => s.trim() === name);
+
+    if (!isTeacher && !isStudent) {
+        alert(`姓名“${name}”不在名单中，请检查姓名是否正确（注意前后空格）。\n当前老师：${config.teacherName}\n学生名单：${config.studentList.join(', ')}`);
+        return;
+    }
+
+    const finalRole = isTeacher ? 'teacher' : role;
+
+    const weekData = getWeekData(window.currentWeekId);
+    if (!weekData) {
+        alert('周次数据异常，请返回主页重新操作');
+        return;
+    }
+
+    const hasVoted = weekData.votes.some(v => v.name.trim() === name);
+    if (hasVoted) {
+        alert('您已经投过票了，不能重复投票！');
+        return;
+    }
+
+    const scores = [];
+    for (let i = 0; i < window.currentWeekData.groups.length; i++) {
+        const scoreInput = document.getElementById(`score_${i}`);
+        if (!scoreInput) continue;
+        const score = parseFloat(scoreInput.value);
+        if (isNaN(score) || score < 0 || score > 10) {
+            alert(`请为“${window.currentWeekData.groups[i]}”输入 0-10 之间的分数！`);
+            scoreInput.focus();
+            return;
+        }
+        scores.push(score);
+    }
+
+    const vote = {
+        name: name,
+        role: finalRole,
+        scores: scores,
+        time: new Date().toLocaleString('zh-CN')
+    };
+    weekData.votes.push(vote);
+    saveWeekData(window.currentWeekId, weekData);
+
+    document.getElementById('voteForm').classList.add('hidden');
+    document.getElementById('successMessage').classList.remove('hidden');
+    document.getElementById('successName').textContent = name;
+}
+
+function resetWeekData() {
+    const weekId = document.getElementById('weekId').value.trim();
+    if (!weekId) { alert('请输入周次编号'); return; }
+    if (!confirm('确定重置本周所有投票？不可恢复！')) return;
+    const db = initDB();
+    if (db.weeks[weekId]) db.weeks[weekId].votes = [];
+    saveDB(db);
+    alert('已重置');
+    updateStats();
+}
+
+function showVoteDetails() {
+    const weekId = document.getElementById('weekId').value.trim();
+    const wd = getWeekData(weekId);
+    if (!wd) { alert('无数据'); return; }
+    const modal = document.getElementById('detailModal');
+    const content = document.getElementById('detailContent');
+    if (wd.votes.length === 0) {
+        content.innerHTML = '<p style="padding:40px;color:#999;">暂无投票</p>';
+    } else {
+        content.innerHTML = `<ul class="vote-list">${wd.votes.map(v => `
+        <li class="vote-item">
+          <div>
+            <div class="name">${escapeHtml(v.name)}${v.role === 'teacher' ? '<span class="score-badge teacher-badge">老师</span>' : ''}</div>
+            <div class="time">${escapeHtml(v.time)}</div>
+          </div>
+          <div class="scores">${v.scores.map((s, i) => `<span class="score-badge" title="${escapeHtml(wd.groups[i])}">${s}</span>`).join('')}</div>
+        </li>`).join('')}</ul>`;
+    }
+    modal.classList.add('active');
+}
+
+function closeModal() {
+    document.getElementById('detailModal').classList.remove('active');
+}
+
+function exportToCSV() {
+    const weekId = document.getElementById('weekId').value.trim();
+    const wd = getWeekData(weekId);
+    if (!wd || wd.votes.length === 0) { alert('无数据可导出'); return; }
+
+    const headers = ['序号', '姓名', '身份', '时间', ...wd.groups];
+    const rows = wd.votes.map((v, i) => [
+        i + 1,
+        v.name,
+        v.role === 'teacher' ? '老师' : '学生',
+        v.time,
+        ...v.scores
+    ]);
+
+    let csv = '\uFEFF' + headers.map(h => `"${String(h).replace(/"/g, '""')}"`).join(',') + '\n';
+    rows.forEach(row => {
+        csv += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',') + '\n';
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = wd.weekName + '_投票数据.csv';
+    a.click();
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    const q = new URLSearchParams(location.search);
+    if (q.get('week')) {
+        initVotePage();
+    } else {
+        loadConfig();
+        generateGroupInputs();
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        document.getElementById('weekId').value = y + m;
+        document.getElementById('weekName').value = `${y}年第${getWeekNumber()}周`;
+        document.getElementById('weekId').addEventListener('input', updateStats);
+    }
+
+    document.addEventListener('click', e => {
+        if (!e.target.closest('#voterName') && !e.target.closest('#nameDropdown')) {
+            document.getElementById('nameDropdown').classList.add('hidden');
+        }
+    });
+
+    const modal = document.getElementById('detailModal');
+    modal.addEventListener('click', e => {
+        if (e.target === modal) closeModal();
+    });
+});
+</script>
 </body>
 </html>
