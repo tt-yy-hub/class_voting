@@ -4,8 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>班级小组展示打分系统</title>
-    <!-- 稳定版 qrcodejs CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <!-- 使用国内稳定 CDN，带备用检测 -->
+    <script src="https://cdn.staticfile.org/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script>
+        // 检测 QRCode 库是否加载成功
+        window.addEventListener('load', function() {
+            if (typeof QRCode === 'undefined') {
+                console.error('QRCode库加载失败');
+                const btn = document.getElementById('genQRBtn');
+                if (btn) {
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        alert('二维码库加载失败，请刷新页面重试。');
+                    });
+                }
+            }
+        });
+    </script>
     <style>
         *{margin:0;padding:0;box-sizing:border-box;}
         :root{--primary-color:#4CAF50;--secondary-color:#2196F3;--danger-color:#f44336;--warning-color:#ff9800;--success-color:#8BC34A;}
@@ -90,7 +105,7 @@
                     </div>
                     <div class="form-group">
                         <label>总人数（含老师）</label>
-                        <input type="number" id="totalPeople" class="form-control" value="55" min="1">
+                        <input type="number" id="totalPeople" class="form-control" value="55" min="1" readonly style="background:#f5f5f5;">
                     </div>
                     <div class="form-group">
                         <label>老师姓名</label>
@@ -173,7 +188,7 @@
             <p id="votePageInfo">请认真为每个小组打分</p>
         </div>
         <div class="vote-form" id="voteForm">
-            <div class="form-group">
+            <div class="form-group" style="position: relative;">
                 <label>您的姓名</label>
                 <input type="text" id="voterName" class="form-control" placeholder="请输入您的真实姓名">
                 <div id="nameHint" class="hint-text"></div>
@@ -209,46 +224,58 @@
 </div>
 
 <script>
+// ========== 数据存储 key ==========
+const CONFIG_KEY = 'vote_config';
+const WEEK_KEY_PREFIX = 'week_';
+
 // ========== 工具函数 ==========
+function getWeekData(weekId) {
+    const data = localStorage.getItem(WEEK_KEY_PREFIX + weekId);
+    return data ? JSON.parse(data) : null;
+}
+function saveWeekData(weekId, data) {
+    localStorage.setItem(WEEK_KEY_PREFIX + weekId, JSON.stringify(data));
+    // 触发 storage 事件（跨标签页刷新）
+    window.dispatchEvent(new StorageEvent('storage', { key: WEEK_KEY_PREFIX + weekId, newValue: JSON.stringify(data) }));
+}
+function getConfig() {
+    const def = { className: '高三(1)班', teacherName: '张老师', studentList: [], total: 55 };
+    const cfg = localStorage.getItem(CONFIG_KEY);
+    return cfg ? JSON.parse(cfg) : def;
+}
+function saveConfigToStorage(config) {
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+    window.dispatchEvent(new StorageEvent('storage', { key: CONFIG_KEY, newValue: JSON.stringify(config) }));
+}
+
+// ========== 姓名清理（去除所有空白字符） ==========
 function cleanName(str) {
     return str.replace(/[\s\u3000\r\n\t]/g, '').trim();
 }
-function getUrlParam(key) {
-    return new URLSearchParams(window.location.search).get(key);
-}
-function b64Encode(str) {
-    return btoa(encodeURIComponent(str));
-}
-function b64Decode(str) {
-    return decodeURIComponent(atob(str));
-}
 
-// ========== 配置管理 ==========
+// ========== 配置管理 UI ==========
 function saveConfig() {
     const className = document.getElementById('className').value.trim();
     const teacherName = cleanName(document.getElementById('teacherName').value);
     const studentListText = document.getElementById('studentList').value;
     const studentList = studentListText.split('\n').map(s => cleanName(s)).filter(s => s);
-    const autoTotal = studentList.length + 1;
-    const manualTotal = parseInt(document.getElementById('totalPeople').value) || autoTotal;
-
-    const config = { className, teacherName, studentList, total: manualTotal };
-    localStorage.setItem('vote_config', JSON.stringify(config));
-
-    document.getElementById('totalPeople').value = manualTotal;
+    const total = studentList.length + 1;
+    const config = { className, teacherName, studentList, total };
+    saveConfigToStorage(config);
+    document.getElementById('totalPeople').value = total;
     const savedMsg = document.getElementById('configSaved');
     savedMsg.style.display = 'inline';
     setTimeout(() => savedMsg.style.display = 'none', 2000);
     alert('配置已保存！');
-    updateStats();
+    updateStats();  // 刷新当前周次统计
 }
 
-function loadConfig() {
-    const config = JSON.parse(localStorage.getItem('vote_config') || '{}');
-    if (config.className) document.getElementById('className').value = config.className;
-    if (config.teacherName) document.getElementById('teacherName').value = config.teacherName;
-    if (config.studentList) document.getElementById('studentList').value = config.studentList.join('\n');
-    if (config.total) document.getElementById('totalPeople').value = config.total;
+function loadConfigToUI() {
+    const cfg = getConfig();
+    document.getElementById('className').value = cfg.className;
+    document.getElementById('teacherName').value = cfg.teacherName;
+    document.getElementById('studentList').value = (cfg.studentList || []).join('\n');
+    document.getElementById('totalPeople').value = cfg.total;
 }
 
 // ========== 小组输入 ==========
@@ -263,58 +290,9 @@ function generateGroupInputs() {
         container.appendChild(div);
     }
 }
-
 function getGroupNames() {
-    return Array.from(document.querySelectorAll('.group-name-input')).map(i => cleanName(i.value)).filter(Boolean);
+    return Array.from(document.querySelectorAll('.group-name-input')).map(i => i.value.trim()).filter(Boolean);
 }
-
-// ========== 生成二维码（兼容 GitHub） ==========
-function generateQRCode() {
-    const weekId = document.getElementById('weekId').value.trim();
-    const weekName = document.getElementById('weekName').value.trim();
-    if (!weekId) { alert('请输入周次编号！'); return; }
-
-    const groupNames = getGroupNames();
-    if (groupNames.length === 0) { alert('请填写小组名称！'); return; }
-
-    const config = JSON.parse(localStorage.getItem('vote_config') || '{}');
-    const voteData = {
-        w: weekId,
-        n: weekName || `${new Date().getFullYear()}年第${getWeekNumber()}周`,
-        g: groupNames,
-        t: config.teacherName || '',
-        s: config.studentList || [],
-        total: config.total || 55
-    };
-
-    // 生成投票链接（数据编码进URL）
-    const baseUrl = window.location.origin + window.location.pathname;
-    const dataStr = b64Encode(JSON.stringify(voteData));
-    const voteUrl = `${baseUrl}?d=${dataStr}`;
-
-    // 生成二维码（兼容写法）
-    const qrEl = document.getElementById('qrcode');
-    qrEl.innerHTML = '';
-    try {
-        new QRCode(qrEl, {
-            text: voteUrl,
-            width: 256,
-            height: 256,
-            colorDark: '#000000',
-            colorLight: '#ffffff',
-            correctLevel: QRCode.CorrectLevel.H
-        });
-        document.getElementById('qrInfo').innerHTML = 
-            `<strong>周次：</strong>${voteData.n} | <strong>总人数：</strong>${voteData.total}人 | <strong>小组数：</strong>${voteData.g.length}组`;
-        document.getElementById('qrCard').style.display = 'block';
-        updateStats();
-        console.log('投票链接：', voteUrl);
-    } catch (e) {
-        alert('二维码生成失败：' + e.message);
-        console.error(e);
-    }
-}
-
 function getWeekNumber() {
     const now = new Date();
     const start = new Date(now.getFullYear(), 0, 1);
@@ -322,198 +300,242 @@ function getWeekNumber() {
     return Math.ceil((days + start.getDay() + 1) / 7);
 }
 
-// ========== 统计 ==========
+// ========== 二维码生成 ==========
+function generateQRCode() {
+    if (typeof QRCode === 'undefined') {
+        alert('二维码库加载失败，请刷新页面重试。');
+        return;
+    }
+    const weekId = document.getElementById('weekId').value.trim();
+    if (!weekId) { alert('请输入周次编号！'); return; }
+
+    const existing = getWeekData(weekId);
+    if (existing && existing.votes && existing.votes.length > 0) {
+        if (!confirm('该周次已有投票数据，重新生成二维码将清空所有投票记录。确定继续吗？')) return;
+    }
+
+    const weekName = document.getElementById('weekName').value.trim();
+    const groupNames = getGroupNames();
+    const total = parseInt(document.getElementById('totalPeople').value);
+    const finalName = weekName || `${new Date().getFullYear()}年第${getWeekNumber()}周`;
+
+    const weekData = { weekName: finalName, total, groups: groupNames, votes: [] };
+    saveWeekData(weekId, weekData);
+
+    const baseUrl = window.location.href.split('?')[0].split('#')[0];
+    const voteUrl = baseUrl + '?week=' + encodeURIComponent(weekId);
+
+    document.getElementById('qrcode').innerHTML = '';
+    new QRCode(document.getElementById('qrcode'), {
+        text: voteUrl,
+        width: 256,
+        height: 256,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+    });
+    document.getElementById('qrInfo').innerHTML = `<strong>周次：</strong>${finalName} | <strong>总人数：</strong>${total}人 | <strong>小组数：</strong>${groupNames.length}组`;
+    document.getElementById('qrCard').style.display = 'block';
+    updateStats();
+    console.log('投票链接：', voteUrl);
+}
+
+// ========== 统计更新 ==========
 function updateStats() {
     const weekId = document.getElementById('weekId').value.trim();
-    const voteKey = `vote_${weekId}`;
-    const votes = JSON.parse(localStorage.getItem(voteKey) || '[]');
-    const config = JSON.parse(localStorage.getItem('vote_config') || '{}');
-    const total = config.total || 55;
-    const voted = votes.length;
-    const pct = ((voted / total) * 100).toFixed(1);
+    if (!weekId) return;
+    const wd = getWeekData(weekId);
+    if (!wd) return;
+
+    const total = wd.total;
+    const voted = wd.votes.length;
+    const pct = total === 0 ? 0 : ((voted / total) * 100).toFixed(1);
 
     document.getElementById('votedCount').innerText = `${voted}/${total}`;
     document.getElementById('voteProgress').innerText = pct + '%';
-    document.getElementById('currentWeek').innerText = weekId || '-';
-    document.getElementById('groupCountStat').innerText = getGroupNames().length + '个';
-
+    document.getElementById('currentWeek').innerText = wd.weekName.split('年')[1] || '-';
+    document.getElementById('groupCountStat').innerText = wd.groups.length + '个';
     const pb = document.getElementById('progressBar');
     pb.style.width = pct + '%';
     pb.innerText = pct + '%';
 
-    calcGroups(votes);
-    showUnvoted(votes);
-}
-
-function calcGroups(votes) {
-    const groups = getGroupNames();
+    // 小组排名
     const container = document.getElementById('groupRankings');
-    if (votes.length === 0) {
+    if (wd.votes.length === 0) {
         container.innerHTML = '<p style="padding:20px;color:#999;">暂无投票数据</p>';
-        return;
+    } else {
+        const scores = wd.groups.map((g, i) => {
+            let sum = 0;
+            wd.votes.forEach(v => sum += parseFloat(v.scores[i] || 0));
+            const avg = (sum / wd.votes.length).toFixed(2);
+            return { name: g, sum: sum.toFixed(2), avg };
+        });
+        scores.sort((a, b) => parseFloat(b.avg) - parseFloat(a.avg));
+        const colors = ['linear-gradient(135deg,#f093fb 0%,#f5576c 100%)','linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)','linear-gradient(135deg,#43e97b 0%,#38f9d7 100%)','linear-gradient(135deg,#fa709a 0%,#fee140 100%)'];
+        container.innerHTML = scores.map((g, k) => `
+        <div class="stat-card" style="background:${colors[k % colors.length]};position:relative;">
+          <span class="rank-badge">#${k+1}</span>
+          <h3 style="margin-top:15px;">${escapeHtml(g.name)}</h3>
+          <p style="font-size:1.5em;margin:10px 0;">${g.avg}分</p>
+          <p style="font-size:0.9em;">总分：${g.sum}</p>
+        </div>`).join('');
     }
-    const scores = groups.map((g, i) => {
-        let sum = 0;
-        votes.forEach(v => sum += parseFloat(v.scores[i] || 0));
-        const avg = (sum / votes.length).toFixed(2);
-        return { name: g, sum: sum.toFixed(2), avg };
-    });
-    scores.sort((a, b) => parseFloat(b.avg) - parseFloat(a.avg));
-    const colors = [
-        'linear-gradient(135deg,#f093fb 0%,#f5576c 100%)',
-        'linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)',
-        'linear-gradient(135deg,#43e97b 0%,#38f9d7 100%)',
-        'linear-gradient(135deg,#fa709a 0%,#fee140 100%)'
-    ];
-    container.innerHTML = scores.map((g, k) => `
-    <div class="stat-card" style="background:${colors[k % colors.length]};position:relative;">
-      <span class="rank-badge">#${k+1}</span>
-      <h3 style="margin-top:15px;">${g.name}</h3>
-      <p style="font-size:1.5em;margin:10px 0;">${g.avg}分</p>
-      <p style="font-size:0.9em;">总分：${g.sum}</p>
-    </div>`).join('');
-}
 
-function showUnvoted(votes) {
-    const config = JSON.parse(localStorage.getItem('vote_config') || '{}');
-    const votedNames = new Set(votes.map(v => cleanName(v.name)));
-    const allNames = [...(config.studentList || []), config.teacherName].filter(n => n);
-    const unvoted = allNames.filter(n => !votedNames.has(cleanName(n)));
+    // 未投票名单
+    const cfg = getConfig();
+    const votedNames = new Set(wd.votes.map(v => v.name.trim()));
+    const allNames = [...cfg.studentList];
+    if (cfg.teacherName) allNames.push(cfg.teacherName);
+    const unvoted = allNames.filter(n => !votedNames.has(n.trim()));
     const box = document.getElementById('unvotedList');
-
     if (unvoted.length === 0) {
         box.innerHTML = '<p style="color:#4CAF50;padding:20px;">所有人都已投票！</p>';
-        return;
-    }
-
-    box.innerHTML = unvoted.map(n => `<div class="unvoted-item">${n}</div>`).join('');
-}
-
-// ========== 投票页面初始化 ==========
-function initVotePage() {
-    const dataParam = getUrlParam('d');
-    if (!dataParam) { alert('缺少投票数据'); location.href='?'; return; }
-
-    try {
-        const voteData = JSON.parse(b64Decode(dataParam));
-        window.voteData = voteData;
-
-        document.getElementById('adminPage').classList.add('hidden');
-        document.getElementById('votePage').classList.remove('hidden');
-        document.getElementById('votePageInfo').innerText = `${voteData.n} - 共${voteData.g.length}个小组`;
-
-        const scoreBox = document.getElementById('scoreInputs');
-        scoreBox.innerHTML = '';
-        voteData.g.forEach((g, i) => {
-            const div = document.createElement('div');
-            div.className = 'score-item';
-            div.innerHTML = `<label>${g}</label><input type="number" id="score_${i}" min="0" max="10" step="0.5" placeholder="0-10">`;
-            scoreBox.appendChild(div);
-        });
-    } catch (e) {
-        alert('投票链接无效，请重新生成！');
-        location.href='?';
-    }
-}
-
-// ========== 姓名校验 ==========
-function checkName() {
-    const val = cleanName(document.getElementById('voterName').value);
-    const voteData = window.voteData;
-    const allNames = [...voteData.s, voteData.t].filter(n => n);
-    const drop = document.getElementById('nameDropdown');
-    const hint = document.getElementById('nameHint');
-
-    if (!val) { drop.classList.add('hidden'); hint.classList.remove('show'); return; }
-
-    const matches = allNames.filter(n => cleanName(n).includes(val));
-    if (matches.length > 0 && matches.length < 10) {
-        drop.innerHTML = matches.map(m => `<div class="auto-complete-item" onclick="selectName('${m}')">${m}</div>`).join('');
-        drop.classList.remove('hidden');
     } else {
-        drop.classList.add('hidden');
+        const teacherVoted = wd.votes.some(v => v.role === 'teacher');
+        const teacherHtml = !teacherVoted ? `<div class="unvoted-item" style="background:#ff9800;color:white;font-weight:bold;">${escapeHtml(cfg.teacherName)}（老师）</div>` : '';
+        box.innerHTML = teacherHtml + unvoted.map(n => `<div class="unvoted-item">${escapeHtml(n)}</div>`).join('');
     }
-
-    const isOk = (val === cleanName(voteData.t)) || voteData.s.some(n => cleanName(n) === val);
-    hint.innerText = isOk ? '' : '未找到该姓名，请确认';
-    hint.classList.toggle('show', !isOk);
 }
 
-function selectName(n) {
-    document.getElementById('voterName').value = n;
-    document.getElementById('nameDropdown').classList.add('hidden');
-    checkName();
-}
+// ========== 投票页面 ==========
+function initVotePage() {
+    const weekId = new URLSearchParams(location.search).get('week');
+    if (!weekId) { alert('缺少周次信息'); location.href = '?'; return; }
+    const wd = getWeekData(weekId);
+    if (!wd) { alert('无此周次数据，请返回主页重新生成二维码'); location.href = '?'; return; }
 
-// ========== 提交投票 ==========
-function submitVote() {
-    const name = document.getElementById('voterName').value.trim();
-    const clean = cleanName(name);
-    const voteData = window.voteData;
-    const voteKey = `vote_${voteData.w}`;
-    const votes = JSON.parse(localStorage.getItem(voteKey) || '[]');
+    document.getElementById('adminPage').classList.add('hidden');
+    document.getElementById('votePage').classList.remove('hidden');
+    document.getElementById('votePageInfo').innerText = wd.weekName + ' - 共' + wd.groups.length + '个小组';
 
-    const isTeacher = (clean === cleanName(voteData.t));
-    const isStudent = voteData.s.some(n => cleanName(n) === clean);
-    if (!isTeacher && !isStudent) { alert('姓名不在名单中'); return; }
+    const scoreBox = document.getElementById('scoreInputs');
+    scoreBox.innerHTML = '';
+    wd.groups.forEach((g, i) => {
+        const div = document.createElement('div');
+        div.className = 'score-item';
+        div.innerHTML = `<label>${escapeHtml(g)}</label><input type="number" id="score_${i}" min="0" max="10" step="0.5" placeholder="0-10">`;
+        scoreBox.appendChild(div);
+    });
 
-    if (votes.some(v => cleanName(v.name) === clean)) { alert('已投过票，不能重复投'); return; }
+    window.currentWeekId = weekId;
+    window.currentWeekData = wd;
 
-    const scores = [];
-    for (let i = 0; i < voteData.g.length; i++) {
-        const inp = document.getElementById('score_' + i);
-        const s = parseFloat(inp.value);
-        if (isNaN(s) || s < 0 || s > 10) {
-            alert('请输入 0-10 之间的分数');
-            inp.focus();
+    // 姓名自动补全
+    const nameInput = document.getElementById('voterName');
+    const dropdown = document.getElementById('nameDropdown');
+    const hint = document.getElementById('nameHint');
+    const cfg = getConfig();
+    const allNames = [...cfg.studentList, cfg.teacherName].map(n => n.trim());
+
+    nameInput.addEventListener('input', function() {
+        const val = this.value.trim();
+        if (!val) {
+            dropdown.classList.add('hidden');
+            hint.classList.remove('show');
             return;
         }
-        scores.push(s);
-    }
+        const matches = allNames.filter(n => n.includes(val));
+        if (matches.length > 0 && matches.length < 10) {
+            dropdown.innerHTML = matches.map(m => `<div class="auto-complete-item" onclick="selectName('${m.replace(/'/g, "\\'")}')">${escapeHtml(m)}</div>`).join('');
+            dropdown.classList.remove('hidden');
+        } else {
+            dropdown.classList.add('hidden');
+        }
 
-    votes.push({
-        name,
-        role: isTeacher ? 'teacher' : 'student',
-        scores,
-        time: new Date().toLocaleString('zh-CN')
+        const isOk = (val === cfg.teacherName.trim()) || cfg.studentList.some(s => s.trim() === val);
+        if (isOk) {
+            hint.classList.remove('show');
+            if (val === cfg.teacherName.trim()) {
+                document.querySelector('input[name="role"][value="teacher"]').checked = true;
+            }
+        } else {
+            hint.innerText = '未找到该姓名，请确认';
+            hint.classList.add('show');
+        }
     });
-    localStorage.setItem(voteKey, JSON.stringify(votes));
+    window.selectName = function(name) {
+        nameInput.value = name;
+        dropdown.classList.add('hidden');
+        nameInput.dispatchEvent(new Event('input'));
+    };
 
-    document.getElementById('voteForm').classList.add('hidden');
-    document.getElementById('successMessage').classList.remove('hidden');
-    document.getElementById('successName').innerText = name;
+    // 提交投票
+    document.getElementById('submitVoteBtn').onclick = function() {
+        const name = nameInput.value.trim();
+        const roleElem = document.querySelector('input[name="role"]:checked');
+        if (!name) { alert('请输入姓名'); return; }
+        const cfgNow = getConfig();
+        const isTeacher = name === cfgNow.teacherName.trim();
+        const isStudent = cfgNow.studentList.some(s => s.trim() === name);
+        if (!isTeacher && !isStudent) {
+            alert(`姓名“${name}”不在名单中，请检查。`);
+            return;
+        }
+        const finalRole = isTeacher ? 'teacher' : roleElem.value;
+
+        const weekDataNow = getWeekData(window.currentWeekId);
+        if (!weekDataNow) { alert('周次数据异常'); return; }
+        if (weekDataNow.votes.some(v => v.name.trim() === name)) { alert('您已经投过票了！'); return; }
+
+        const scores = [];
+        for (let i = 0; i < window.currentWeekData.groups.length; i++) {
+            const inp = document.getElementById(`score_${i}`);
+            const s = parseFloat(inp.value);
+            if (isNaN(s) || s < 0 || s > 10) {
+                alert(`请为“${window.currentWeekData.groups[i]}”输入 0-10 之间的分数`);
+                inp.focus();
+                return;
+            }
+            scores.push(s);
+        }
+
+        weekDataNow.votes.push({
+            name, role: finalRole, scores,
+            time: new Date().toLocaleString('zh-CN')
+        });
+        saveWeekData(window.currentWeekId, weekDataNow);
+
+        document.getElementById('voteForm').classList.add('hidden');
+        document.getElementById('successMessage').classList.remove('hidden');
+        document.getElementById('successName').innerText = name;
+    };
 }
 
-// ========== 重置/导出/详情 ==========
+// ========== 其他功能 ==========
 function resetWeekData() {
     const weekId = document.getElementById('weekId').value.trim();
     if (!weekId) { alert('请输入周次编号'); return; }
     if (!confirm('确定重置本周所有投票？不可恢复！')) return;
-    localStorage.removeItem(`vote_${weekId}`);
-    alert('已重置');
-    updateStats();
+    const wd = getWeekData(weekId);
+    if (wd) {
+        wd.votes = [];
+        saveWeekData(weekId, wd);
+        alert('已重置');
+        updateStats();
+    } else {
+        alert('本周数据不存在');
+    }
 }
 
 function showVoteDetails() {
     const weekId = document.getElementById('weekId').value.trim();
-    const votes = JSON.parse(localStorage.getItem(`vote_${weekId}`) || '[]');
-    const groups = getGroupNames();
-    const m = document.getElementById('detailModal');
-    const c = document.getElementById('detailContent');
-
-    if (votes.length === 0) {
-        c.innerHTML = '<p style="padding:40px;color:#999;">暂无投票</p>';
+    const wd = getWeekData(weekId);
+    if (!wd) { alert('无数据'); return; }
+    const modal = document.getElementById('detailModal');
+    const content = document.getElementById('detailContent');
+    if (wd.votes.length === 0) {
+        content.innerHTML = '<p style="padding:40px;color:#999;">暂无投票</p>';
     } else {
-        c.innerHTML = `<ul class="vote-list">${votes.map(v => `
+        content.innerHTML = `<ul class="vote-list">${wd.votes.map(v => `
         <li class="vote-item">
           <div>
-            <div class="name">${v.name}${v.role === 'teacher' ? '<span class="score-badge teacher-badge">老师</span>' : ''}</div>
-            <div class="time">${v.time}</div>
+            <div class="name">${escapeHtml(v.name)}${v.role === 'teacher' ? '<span class="score-badge teacher-badge">老师</span>' : ''}</div>
+            <div class="time">${escapeHtml(v.time)}</div>
           </div>
-          <div class="scores">${v.scores.map((s, i) => `<span class="score-badge" title="${groups[i]}">${s}</span>`).join('')}</div>
+          <div class="scores">${v.scores.map((s, i) => `<span class="score-badge" title="${escapeHtml(wd.groups[i])}">${s}</span>`).join('')}</div>
         </li>`).join('')}</ul>`;
     }
-    m.classList.add('active');
+    modal.classList.add('active');
 }
 
 function closeModal() {
@@ -522,72 +544,70 @@ function closeModal() {
 
 function exportToCSV() {
     const weekId = document.getElementById('weekId').value.trim();
-    const votes = JSON.parse(localStorage.getItem(`vote_${weekId}`) || '[]');
-    const groups = getGroupNames();
-    if (votes.length === 0) { alert('无数据可导出'); return; }
-
-    const head = ['序号', '姓名', '身份', '时间', ...groups];
-    const rows = votes.map((v, i) => [
-        i + 1,
-        v.name,
-        v.role === 'teacher' ? '老师' : '学生',
-        v.time,
-        ...v.scores
-    ]);
-
-    let csv = '\uFEFF' + head.join(',') + '\n';
-    rows.forEach(r => { csv += r.join(',') + '\n'; });
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const wd = getWeekData(weekId);
+    if (!wd || wd.votes.length === 0) { alert('无数据可导出'); return; }
+    const headers = ['序号', '姓名', '身份', '时间', ...wd.groups];
+    const rows = wd.votes.map((v, i) => [i+1, v.name, v.role==='teacher'?'老师':'学生', v.time, ...v.scores]);
+    let csv = '\uFEFF' + headers.map(h => `"${String(h).replace(/"/g,'""')}"`).join(',') + '\n';
+    rows.forEach(row => { csv += row.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(',') + '\n'; });
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `投票数据_${weekId}.csv`;
+    a.download = wd.weekName + '_投票数据.csv';
     a.click();
 }
 
-// ========== 页面初始化（兼容 GitHub CSP） ==========
-document.addEventListener('DOMContentLoaded', function() {
-    // 绑定所有按钮
-    document.getElementById('saveConfigBtn').addEventListener('click', saveConfig);
-    document.getElementById('genQRBtn').addEventListener('click', generateQRCode);
-    document.getElementById('resetBtn').addEventListener('click', resetWeekData);
-    document.getElementById('detailBtn').addEventListener('click', showVoteDetails);
-    document.getElementById('exportBtn').addEventListener('click', exportToCSV);
-    document.getElementById('submitVoteBtn').addEventListener('click', submitVote);
-
-    // 小组数量变化
-    document.getElementById('groupCount').addEventListener('change', generateGroupInputs);
-
-    // 姓名输入监听
-    document.getElementById('voterName').addEventListener('input', checkName);
-
-    // 点击空白关闭下拉
-    document.addEventListener('click', e => {
-        if (!e.target.closest('#voterName') && !e.target.closest('#nameDropdown')) {
-            document.getElementById('nameDropdown').classList.add('hidden');
-        }
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
     });
+}
 
-    // 模态框关闭
-    const modal = document.getElementById('detailModal');
-    modal.addEventListener('click', e => {
-        if (e.target === modal) closeModal();
-    });
-
-    // 初始化
-    const dataParam = getUrlParam('d');
-    if (dataParam) {
+// ========== 页面初始化 ==========
+window.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('week')) {
         initVotePage();
     } else {
-        loadConfig();
+        loadConfigToUI();
         generateGroupInputs();
         const now = new Date();
         const y = now.getFullYear();
         const m = String(now.getMonth() + 1).padStart(2, '0');
         document.getElementById('weekId').value = y + m;
         document.getElementById('weekName').value = `${y}年第${getWeekNumber()}周`;
+        updateStats();
+
+        // 监听 localStorage 变化，自动刷新统计（实现跨标签页实时更新）
+        window.addEventListener('storage', function(e) {
+            if (e.key && e.key.startsWith(WEEK_KEY_PREFIX)) {
+                updateStats();
+            }
+        });
+
+        // 绑定按钮事件
+        document.getElementById('saveConfigBtn').onclick = saveConfig;
+        document.getElementById('genQRBtn').onclick = generateQRCode;
+        document.getElementById('resetBtn').onclick = resetWeekData;
+        document.getElementById('detailBtn').onclick = showVoteDetails;
+        document.getElementById('exportBtn').onclick = exportToCSV;
+        document.getElementById('groupCount').onchange = generateGroupInputs;
         document.getElementById('weekId').addEventListener('input', updateStats);
     }
+
+    // 全局关闭下拉框
+    document.addEventListener('click', e => {
+        if (!e.target.closest('#voterName') && !e.target.closest('#nameDropdown')) {
+            const dropdown = document.getElementById('nameDropdown');
+            if (dropdown) dropdown.classList.add('hidden');
+        }
+    });
+    const modal = document.getElementById('detailModal');
+    if (modal) modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
 });
 </script>
 </body>
