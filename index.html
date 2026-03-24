@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -97,6 +96,10 @@
                         <label>老师姓名</label>
                         <input type="text" id="teacherName" class="form-control" value="张老师">
                     </div>
+                    <div class="form-group">
+                        <label>后端接口地址（用于跨设备实时同步）</label>
+                        <input type="text" id="backendUrl" class="form-control" placeholder="例如：https://your-vote-api.onrender.com">
+                    </div>
                 </div>
                 <div>
                     <div class="form-group">
@@ -194,7 +197,7 @@
         <div id="successMessage" class="success-message hidden">
             <h2>投票成功！</h2>
             <p style="font-size:1.2em;margin-top:10px;">谢谢 <span id="successName"></span> 的参与！</p>
-            <button class="btn btn-secondary" onclick="location.href='?'" style="margin-top:20px;">返回主页</button>
+            <button class="btn btn-secondary" onclick="exitVote()" style="margin-top:20px;">返回主页</button>
         </div>
     </div>
 </div>
@@ -223,6 +226,41 @@ function b64Encode(str) {
 function b64Decode(str) {
     return decodeURIComponent(atob(str));
 }
+function normalizeApiBase(url) {
+    return String(url || '').trim().replace(/\/+$/, '');
+}
+function getAdminApiBase() {
+    return normalizeApiBase(document.getElementById('backendUrl')?.value || '');
+}
+async function fetchWeekData(apiBase, weekId) {
+    const res = await fetch(`${apiBase}/api/weeks/${encodeURIComponent(weekId)}`);
+    if (!res.ok) throw new Error('获取远程数据失败');
+    return await res.json();
+}
+async function fetchWeekVotes(apiBase, weekId) {
+    const data = await fetchWeekData(apiBase, weekId);
+    return Array.isArray(data.votes) ? data.votes : [];
+}
+async function saveWeekConfig(apiBase, voteData) {
+    const res = await fetch(`${apiBase}/api/weeks/${encodeURIComponent(voteData.w)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(voteData)
+    });
+    if (!res.ok) throw new Error('保存远程周配置失败');
+}
+
+// ========== 投票结束退出（最佳努力） ==========
+function exitVote() {
+    // 兼容：多数移动端会阻止 window.close()，所以提供兜底页面
+    try {
+        window.open('', '_self');
+        window.close();
+    } catch (_) {
+        // ignore
+    }
+    location.replace('about:blank');
+}
 
 // ========== 配置管理 ==========
 function saveConfig() {
@@ -233,7 +271,8 @@ function saveConfig() {
     const autoTotal = studentList.length + 1;
     const manualTotal = parseInt(document.getElementById('totalPeople').value) || autoTotal;
 
-    const config = { className, teacherName, studentList, total: manualTotal };
+    const backendUrl = normalizeApiBase(document.getElementById('backendUrl').value);
+    const config = { className, teacherName, studentList, total: manualTotal, backendUrl };
     localStorage.setItem('vote_config', JSON.stringify(config));
 
     document.getElementById('totalPeople').value = manualTotal;
@@ -250,6 +289,7 @@ function loadConfig() {
     if (config.teacherName) document.getElementById('teacherName').value = config.teacherName;
     if (config.studentList) document.getElementById('studentList').value = config.studentList.join('\n');
     if (config.total) document.getElementById('totalPeople').value = config.total;
+    if (config.backendUrl) document.getElementById('backendUrl').value = config.backendUrl;
 }
 
 // ========== 小组输入 ==========
@@ -270,7 +310,7 @@ function getGroupNames() {
 }
 
 // ========== 生成二维码（兼容 GitHub） ==========
-function generateQRCode() {
+async function generateQRCode() {
     const weekId = document.getElementById('weekId').value.trim();
     const weekName = document.getElementById('weekName').value.trim();
     if (!weekId) { alert('请输入周次编号！'); return; }
@@ -285,13 +325,24 @@ function generateQRCode() {
         g: groupNames,
         t: config.teacherName || '',
         s: config.studentList || [],
-        total: config.total || 55
+        total: config.total || 55,
+        a: normalizeApiBase(config.backendUrl || '')
     };
+
+    if (voteData.a) {
+        try {
+            await saveWeekConfig(voteData.a, voteData);
+        } catch (e) {
+            alert('后端连接失败，请检查接口地址：' + e.message);
+            return;
+        }
+    }
 
     // 生成投票链接（数据编码进URL）
     const baseUrl = window.location.origin + window.location.pathname;
     const dataStr = b64Encode(JSON.stringify(voteData));
-    const voteUrl = `${baseUrl}?d=${dataStr}`;
+    // base64 里可能包含 '+' '/' 等字符，直接放进 URL 容易被解析成空格等导致无法解码
+    const voteUrl = `${baseUrl}?d=${encodeURIComponent(dataStr)}`;
 
     // 生成二维码（兼容写法）
     const qrEl = document.getElementById('qrcode');
@@ -324,11 +375,20 @@ function getWeekNumber() {
 }
 
 // ========== 统计 ==========
-function updateStats() {
+async function updateStats() {
     const weekId = document.getElementById('weekId').value.trim();
-    const voteKey = `vote_${weekId}`;
-    const votes = JSON.parse(localStorage.getItem(voteKey) || '[]');
+    if (!weekId) return;
     const config = JSON.parse(localStorage.getItem('vote_config') || '{}');
+    const apiBase = normalizeApiBase(config.backendUrl || '');
+    const voteKey = `vote_${weekId}`;
+    let votes = JSON.parse(localStorage.getItem(voteKey) || '[]');
+    if (apiBase) {
+        try {
+            votes = await fetchWeekVotes(apiBase, weekId);
+        } catch (e) {
+            console.warn(e);
+        }
+    }
     const total = config.total || 55;
     const voted = votes.length;
     const pct = ((voted / total) * 100).toFixed(1);
@@ -396,7 +456,7 @@ function initVotePage() {
     if (!dataParam) { alert('缺少投票数据'); location.href='?'; return; }
 
     try {
-        const voteData = JSON.parse(b64Decode(dataParam));
+        const voteData = JSON.parse(b64Decode(decodeURIComponent(dataParam)));
         window.voteData = voteData;
 
         document.getElementById('adminPage').classList.add('hidden');
@@ -447,12 +507,21 @@ function selectName(n) {
 }
 
 // ========== 提交投票 ==========
-function submitVote() {
+async function submitVote() {
     const name = document.getElementById('voterName').value.trim();
     const clean = cleanName(name);
     const voteData = window.voteData;
     const voteKey = `vote_${voteData.w}`;
-    const votes = JSON.parse(localStorage.getItem(voteKey) || '[]');
+    const apiBase = normalizeApiBase(voteData.a || '');
+    let votes = JSON.parse(localStorage.getItem(voteKey) || '[]');
+    if (apiBase) {
+        try {
+            votes = await fetchWeekVotes(apiBase, voteData.w);
+        } catch (e) {
+            alert('连接后端失败，请稍后再试');
+            return;
+        }
+    }
 
     const isTeacher = (clean === cleanName(voteData.t));
     const isStudent = voteData.s.some(n => cleanName(n) === clean);
@@ -472,13 +541,28 @@ function submitVote() {
         scores.push(s);
     }
 
-    votes.push({
+    const voteItem = {
         name,
         role: isTeacher ? 'teacher' : 'student',
         scores,
         time: new Date().toLocaleString('zh-CN')
-    });
-    localStorage.setItem(voteKey, JSON.stringify(votes));
+    };
+    votes.push(voteItem);
+
+    if (apiBase) {
+        const res = await fetch(`${apiBase}/api/weeks/${encodeURIComponent(voteData.w)}/votes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(voteItem)
+        });
+        if (!res.ok) {
+            const msg = await res.text();
+            alert(msg || '提交失败，请重试');
+            return;
+        }
+    } else {
+        localStorage.setItem(voteKey, JSON.stringify(votes));
+    }
 
     document.getElementById('voteForm').classList.add('hidden');
     document.getElementById('successMessage').classList.remove('hidden');
@@ -486,19 +570,41 @@ function submitVote() {
 }
 
 // ========== 重置/导出/详情 ==========
-function resetWeekData() {
+async function resetWeekData() {
     const weekId = document.getElementById('weekId').value.trim();
     if (!weekId) { alert('请输入周次编号'); return; }
     if (!confirm('确定重置本周所有投票？不可恢复！')) return;
-    localStorage.removeItem(`vote_${weekId}`);
+    const config = JSON.parse(localStorage.getItem('vote_config') || '{}');
+    const apiBase = normalizeApiBase(config.backendUrl || '');
+    if (apiBase) {
+        const res = await fetch(`${apiBase}/api/weeks/${encodeURIComponent(weekId)}/votes`, { method: 'DELETE' });
+        if (!res.ok) {
+            alert('重置失败，请检查后端连接');
+            return;
+        }
+    } else {
+        localStorage.removeItem(`vote_${weekId}`);
+    }
     alert('已重置');
     updateStats();
 }
 
-function showVoteDetails() {
+async function showVoteDetails() {
     const weekId = document.getElementById('weekId').value.trim();
-    const votes = JSON.parse(localStorage.getItem(`vote_${weekId}`) || '[]');
-    const groups = getGroupNames();
+    const config = JSON.parse(localStorage.getItem('vote_config') || '{}');
+    const apiBase = normalizeApiBase(config.backendUrl || '');
+    let votes = JSON.parse(localStorage.getItem(`vote_${weekId}`) || '[]');
+    let groups = getGroupNames();
+    if (apiBase) {
+        try {
+            const week = await fetchWeekData(apiBase, weekId);
+            votes = Array.isArray(week.votes) ? week.votes : [];
+            groups = Array.isArray(week.config?.g) && week.config.g.length > 0 ? week.config.g : groups;
+        } catch (e) {
+            alert('获取远程详情失败');
+            return;
+        }
+    }
     const m = document.getElementById('detailModal');
     const c = document.getElementById('detailContent');
 
@@ -521,10 +627,22 @@ function closeModal() {
     document.getElementById('detailModal').classList.remove('active');
 }
 
-function exportToCSV() {
+async function exportToCSV() {
     const weekId = document.getElementById('weekId').value.trim();
-    const votes = JSON.parse(localStorage.getItem(`vote_${weekId}`) || '[]');
-    const groups = getGroupNames();
+    const config = JSON.parse(localStorage.getItem('vote_config') || '{}');
+    const apiBase = normalizeApiBase(config.backendUrl || '');
+    let votes = JSON.parse(localStorage.getItem(`vote_${weekId}`) || '[]');
+    let groups = getGroupNames();
+    if (apiBase) {
+        try {
+            const week = await fetchWeekData(apiBase, weekId);
+            votes = Array.isArray(week.votes) ? week.votes : [];
+            groups = Array.isArray(week.config?.g) && week.config.g.length > 0 ? week.config.g : groups;
+        } catch (e) {
+            alert('获取远程导出数据失败');
+            return;
+        }
+    }
     if (votes.length === 0) { alert('无数据可导出'); return; }
 
     const head = ['序号', '姓名', '身份', '时间', ...groups];
@@ -588,6 +706,14 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('weekId').value = y + m;
         document.getElementById('weekName').value = `${y}年第${getWeekNumber()}周`;
         document.getElementById('weekId').addEventListener('input', updateStats);
+
+        // 让“电脑端”在同一浏览器/同一设备（多标签）场景下保持实时刷新
+        // 注：不同设备之间仍需要后端/共享存储才能真正实时同步。
+        window.addEventListener('storage', (e) => {
+            if (e.key && e.key.startsWith('vote_')) updateStats();
+        });
+        setInterval(() => updateStats(), 3000);
+        updateStats();
     }
 });
 </script>
