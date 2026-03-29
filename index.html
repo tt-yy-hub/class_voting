@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -98,7 +97,7 @@
                         <input type="text" id="teacherName" class="form-control" value="张老师">
                     </div>
                     <div class="form-group">
-                        <label>后端接口地址（用于跨设备实时同步）</label>
+                        <label>后端接口地址（用于跨设备实时同步，可选）</label>
                         <input type="text" id="backendUrl" class="form-control" placeholder="例如：https://your-vote-api.onrender.com">
                     </div>
                 </div>
@@ -128,11 +127,7 @@
                     <div class="form-group">
                         <label>展示小组数量</label>
                         <select id="groupCount" class="form-control">
-                            <option value="3">3 个小组</option>
-                            <option value="4">4 个小组</option>
-                            <option value="5">5 个小组</option>
-                            <option value="6">6 个小组</option>
-                            <option value="7">7 个小组</option>
+                            <!-- 选项将通过 JavaScript 动态生成 1-18 -->
                         </select>
                     </div>
                 </div>
@@ -256,7 +251,6 @@ async function saveWeekConfig(apiBase, voteData) {
 
 // ========== 投票结束退出（最佳努力） ==========
 function exitVote() {
-    // 兼容：多数移动端会阻止 window.close()，所以提供兜底页面
     try {
         window.open('', '_self');
         window.close();
@@ -345,10 +339,9 @@ async function generateQRCode() {
     // 生成投票链接（数据编码进URL）
     const baseUrl = window.location.origin + window.location.pathname;
     const dataStr = b64Encode(JSON.stringify(voteData));
-    // base64 里可能包含 '+' '/' 等字符，直接放进 URL 容易被解析成空格等导致无法解码
     const voteUrl = `${baseUrl}?d=${encodeURIComponent(dataStr)}`;
 
-    // 生成二维码（兼容写法）
+    // 生成二维码
     const qrEl = document.getElementById('qrcode');
     qrEl.innerHTML = '';
     try {
@@ -668,8 +661,25 @@ async function exportToCSV() {
     a.click();
 }
 
-// ========== 页面初始化（兼容 GitHub CSP） ==========
+// ========== 动态生成小组数量选项（1-18） ==========
+function initGroupCountSelect() {
+    const select = document.getElementById('groupCount');
+    if (!select) return;
+    select.innerHTML = '';
+    for (let i = 1; i <= 18; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i + ' 个小组';
+        if (i === 3) option.selected = true;  // 默认选中3组
+        select.appendChild(option);
+    }
+}
+
+// ========== 页面初始化 ==========
 document.addEventListener('DOMContentLoaded', function() {
+    // 初始化小组数量下拉框（1-18）
+    initGroupCountSelect();
+
     // 绑定所有按钮
     document.getElementById('saveConfigBtn').addEventListener('click', saveConfig);
     document.getElementById('genQRBtn').addEventListener('click', generateQRCode);
@@ -711,11 +721,11 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('weekName').value = `${y}年第${getWeekNumber()}周`;
         document.getElementById('weekId').addEventListener('input', updateStats);
 
-        // 让“电脑端”在同一浏览器/同一设备（多标签）场景下保持实时刷新
-        // 注：不同设备之间仍需要后端/共享存储才能真正实时同步。
+        // 跨标签页实时刷新（同一设备）
         window.addEventListener('storage', (e) => {
             if (e.key && e.key.startsWith('vote_')) updateStats();
         });
+        // 定时轮询（跨设备时如果配置了后端，updateStats 会调用后端 API）
         setInterval(() => updateStats(), 3000);
         updateStats();
     }
