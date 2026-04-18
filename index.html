@@ -338,8 +338,16 @@ async function generateQRCode() {
 
     // 生成投票链接（数据编码进URL）
     const baseUrl = window.location.origin + window.location.pathname;
-    const dataStr = b64Encode(JSON.stringify(voteData));
-    const voteUrl = `${baseUrl}?d=${encodeURIComponent(dataStr)}`;
+    let voteUrl;
+    
+    // 优化：当配置了后端时，只传递周次ID，通过后端获取完整配置
+    if (voteData.a) {
+        voteUrl = `${baseUrl}?w=${encodeURIComponent(weekId)}&a=${encodeURIComponent(voteData.a)}`;
+    } else {
+        // 没有后端时，继续使用原来的方式
+        const dataStr = b64Encode(JSON.stringify(voteData));
+        voteUrl = `${baseUrl}?d=${encodeURIComponent(dataStr)}`;
+    }
 
     // 生成二维码
     const qrEl = document.getElementById('qrcode');
@@ -448,30 +456,64 @@ function showUnvoted(votes) {
 }
 
 // ========== 投票页面初始化 ==========
-function initVotePage() {
+async function initVotePage() {
     const dataParam = getUrlParam('d');
-    if (!dataParam) { alert('缺少投票数据'); location.href='?'; return; }
+    const weekId = getUrlParam('w');
+    const apiBase = getUrlParam('a');
 
-    try {
-        const voteData = JSON.parse(b64Decode(decodeURIComponent(dataParam)));
-        window.voteData = voteData;
-
-        document.getElementById('adminPage').classList.add('hidden');
-        document.getElementById('votePage').classList.remove('hidden');
-        document.getElementById('votePageInfo').innerText = `${voteData.n} - 共${voteData.g.length}个小组`;
-
-        const scoreBox = document.getElementById('scoreInputs');
-        scoreBox.innerHTML = '';
-        voteData.g.forEach((g, i) => {
-            const div = document.createElement('div');
-            div.className = 'score-item';
-            div.innerHTML = `<label>${g}</label><input type="number" id="score_${i}" min="0" max="10" step="0.5" placeholder="0-10">`;
-            scoreBox.appendChild(div);
-        });
-    } catch (e) {
-        alert('投票链接无效，请重新生成！');
+    if (dataParam) {
+        // 旧格式：直接从URL获取数据
+        try {
+            const voteData = JSON.parse(b64Decode(decodeURIComponent(dataParam)));
+            window.voteData = voteData;
+            setupVotePage(voteData);
+        } catch (e) {
+            alert('投票链接无效，请重新生成！');
+            location.href='?';
+        }
+    } else if (weekId && apiBase) {
+        // 新格式：通过后端API获取数据
+        try {
+            const voteData = await fetchWeekData(apiBase, weekId);
+            if (!voteData.config) {
+                alert('该周次配置不存在，请重新生成二维码！');
+                location.href='?';
+                return;
+            }
+            window.voteData = {
+                w: weekId,
+                n: voteData.config.n,
+                g: voteData.config.g,
+                t: voteData.config.t,
+                s: voteData.config.s,
+                total: voteData.config.total,
+                a: apiBase
+            };
+            setupVotePage(window.voteData);
+        } catch (e) {
+            alert('获取投票数据失败：' + e.message);
+            location.href='?';
+        }
+    } else {
+        alert('缺少投票数据');
         location.href='?';
+        return;
     }
+}
+
+function setupVotePage(voteData) {
+    document.getElementById('adminPage').classList.add('hidden');
+    document.getElementById('votePage').classList.remove('hidden');
+    document.getElementById('votePageInfo').innerText = `${voteData.n} - 共${voteData.g.length}个小组`;
+
+    const scoreBox = document.getElementById('scoreInputs');
+    scoreBox.innerHTML = '';
+    voteData.g.forEach((g, i) => {
+        const div = document.createElement('div');
+        div.className = 'score-item';
+        div.innerHTML = `<label>${g}</label><input type="number" id="score_${i}" min="0" max="10" step="0.5" placeholder="0-10">`;
+        scoreBox.appendChild(div);
+    });
 }
 
 // ========== 姓名校验 ==========
@@ -709,7 +751,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 初始化
     const dataParam = getUrlParam('d');
-    if (dataParam) {
+    const weekId = getUrlParam('w');
+    const apiBase = getUrlParam('a');
+    if (dataParam || (weekId && apiBase)) {
         initVotePage();
     } else {
         loadConfig();
